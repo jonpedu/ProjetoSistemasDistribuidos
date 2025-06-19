@@ -1,4 +1,4 @@
-package com.ufma.tap.discovery_service;
+package com.ufma.tap.discovery;
 
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.test.context.SpringBootTest;

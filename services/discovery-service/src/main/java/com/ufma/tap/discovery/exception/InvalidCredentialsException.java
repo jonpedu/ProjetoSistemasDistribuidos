@@ -1,5 +1,5 @@
-// Caminho: services/middleware-service/src/main/java/com/ufma/tap/middleware/exception/InvalidCredentialsException.java
-package com.ufma.tap.middleware.exception;
+// Caminho: services/discovery-service/src/main/java/com/ufma/tap/discovery/exception/InvalidCredentialsException.java
+package com.ufma.tap.discovery.exception;
 
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.ResponseStatus;

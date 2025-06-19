@@ -4,7 +4,7 @@ package com.ufma.tap.middleware.service;
 import com.google.gson.Gson;
 import com.ufma.tap.middleware.auth.BasicAuthUtil;
 import com.ufma.tap.middleware.model.Consumer;
-import com.ufma.tap.middleware.model.Broker; // Model POJO para configurações de broker
+import com.ufma.tap.middleware.model.Broker;
 import com.ufma.tap.middleware.model.Message;
 import com.ufma.tap.middleware.repository.ConsumerRepository;
 import com.ufma.tap.middleware.repository.EmitterRepository;
@@ -17,19 +17,23 @@ import com.ufma.tap.middleware.dto.StrategyUpdate;
 import com.ufma.tap.middleware.dto.QueueUpdate;
 import com.ufma.tap.middleware.dto.BrokerUpdate;
 import com.ufma.tap.middleware.dto.PersistenceUpdate;
+import com.ufma.tap.middleware.dto.ConsumerConnectionEvent; // <<< NOVO IMPORT
 import com.ufma.tap.middleware.exception.InvalidCredentialsException;
 import com.ufma.tap.middleware.exception.ConsumerNotFoundException;
 import com.ufma.tap.middleware.exception.UserConflictException;
 import com.ufma.tap.middleware.exception.BrokerNotSupportedException;
 import com.ufma.tap.middleware.exception.BrokerStrategyIncompatibleException;
 import com.ufma.tap.middleware.exception.MessageNotFoundException;
+import org.springframework.amqp.core.AmqpTemplate; // <<< NOVO IMPORT
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.stereotype.Service;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
 import java.io.IOException;
+import java.util.Date;
 import java.util.List;
+import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
 import java.util.stream.Collectors;
@@ -49,6 +53,9 @@ public class ConsumerService implements IConsumerService {
     @Autowired
     private BasicAuthUtil basicAuthUtil;
 
+    @Autowired
+    private AmqpTemplate rabbitTemplate; // <<< INJEÇÃO DO RABBIT TEMPLATE
+
     // Injetando as implementações específicas de consumidores
     @Autowired
     @Qualifier("rabbitMQConsumer")
@@ -58,6 +65,12 @@ public class ConsumerService implements IConsumerService {
 
     private final Set<String> GLOBAL_SUPPORTED_BROKERS = Set.of("rabbitmq", "kafka", "activemq5");
     private final Gson gson = new Gson();
+
+    // Constantes para o RabbitMQ (DEVE SER AS MESMAS NO discovery-service/config/RabbitMQConfig.java)
+    private static final String CONSUMER_CONNECTION_EXCHANGE = "consumer.connection.events";
+    private static final String CONSUMER_CONNECTED_ROUTING_KEY = "consumer.connection.connected";
+    private static final String CONSUMER_DISCONNECTED_ROUTING_KEY = "consumer.connection.disconnected";
+
 
     @Override
     public ConsumerDto registerConsumer(Consumer consumer, String projectAuthToken) {
@@ -102,32 +115,44 @@ public class ConsumerService implements IConsumerService {
         messageRepository.deleteAllByConsumerId(consumer.getId());
         // Deleta o consumidor do banco de dados
         consumerRepository.delete(consumer);
+
+        // Publica evento de consumidor desconectado após exclusão
+        publishConsumerConnectionEvent(consumer.getId(), consumer.getProjectId(), "DISCONNECTED", "Consumer " + consumer.getId() + " deleted.");
     }
 
     @Override
     public SseEmitter connectConsumer(String consumerId, String projectAuthToken) {
         Consumer consumer = findAndValidateConsumer(consumerId, projectAuthToken);
 
-        // Cria um novo SseEmitter para a conexão de longa duração
-        SseEmitter emitter = new SseEmitter(Long.MAX_VALUE); // Long.MAX_VALUE para não expirar automaticamente
+        SseEmitter emitter = new SseEmitter(Long.MAX_VALUE);
 
-        emitter.onCompletion(() -> emitterRepository.remove(consumerId));
-        emitter.onTimeout(() -> emitterRepository.remove(consumerId));
+        emitter.onCompletion(() -> {
+            emitterRepository.remove(consumerId);
+            // Publica evento de consumidor desconectado (por completion)
+            publishConsumerConnectionEvent(consumerId, consumer.getProjectId(), "DISCONNECTED", "Consumer " + consumerId + " disconnected (completion).");
+        });
+        emitter.onTimeout(() -> {
+            emitterRepository.remove(consumerId);
+            // Publica evento de consumidor desconectado (por timeout)
+            publishConsumerConnectionEvent(consumerId, consumer.getProjectId(), "DISCONNECTED", "Consumer " + consumerId + " disconnected (timeout).");
+        });
         emitter.onError((e) -> {
             System.err.println("SSE Emitter error for consumer " + consumerId + ": " + e.getMessage());
             emitterRepository.remove(consumerId);
+            // Publica evento de consumidor desconectado (por erro)
+            publishConsumerConnectionEvent(consumerId, consumer.getProjectId(), "DISCONNECTED", "Consumer " + consumerId + " disconnected (error: " + e.getMessage() + ").");
         });
 
         emitterRepository.add(consumerId, emitter);
 
-        // Conecta o consumidor ao broker e define o handler de mensagens
         Broker brokerConfig = buildBrokerConfig(consumer);
         getConsumerMessagingAdapter(brokerConfig.getName())
                 .connectAndListen(consumer, receivedMessage -> {
-                    // Este é o callback do adaptador de mensageria quando uma mensagem é recebida do broker
                     handleBrokerMessage(receivedMessage, emitter);
                 });
 
+        // Publica evento de consumidor conectado
+        publishConsumerConnectionEvent(consumerId, consumer.getProjectId(), "CONNECTED", "Consumer " + consumerId + " connected.");
         return emitter;
     }
 
@@ -135,7 +160,10 @@ public class ConsumerService implements IConsumerService {
     public void disconnectConsumer(String consumerId, String projectAuthToken) {
         Consumer consumer = findAndValidateConsumer(consumerId, projectAuthToken);
         getConsumerMessagingAdapter(consumer.getBroker()).close(consumer.getId());
-        emitterRepository.remove(consumer.getId()); // Garante que o emitter seja removido
+        emitterRepository.remove(consumer.getId());
+
+        // Publica evento de consumidor desconectado por chamada explícita de API
+        publishConsumerConnectionEvent(consumerId, consumer.getProjectId(), "DISCONNECTED", "Consumer " + consumer.getId() + " disconnected by API call.");
     }
 
     @Override
@@ -171,8 +199,7 @@ public class ConsumerService implements IConsumerService {
         }
         validateBrokerStrategy(brokerUpdate.getBroker(), brokerUpdate.getStrategy());
 
-        // Desconectar do broker antigo antes de reconfigurar
-        getConsumerMessagingAdapter(consumer.getBroker()).close(consumer.getId());
+        getConsumerMessagingAdapter(consumer.getBroker()).close(consumer.getId()); // Desconecta do broker antigo
 
         consumer.setBroker(brokerUpdate.getBroker());
         consumer.setStrategy(brokerUpdate.getStrategy());
@@ -181,14 +208,19 @@ public class ConsumerService implements IConsumerService {
         consumer.setRoutingKey(brokerUpdate.getRoutingKey());
         consumer.setHeaders(brokerUpdate.getHeaders() != null ? gson.toJson(brokerUpdate.getHeaders()) : null);
 
-        // Reconectar com as novas configurações (a conexão SSE é mantida)
+        Consumer savedConsumer = consumerRepository.save(consumer);
+
+        // Reconecta com as novas configurações (a conexão SSE é mantida)
         Broker newBrokerConfig = buildBrokerConfig(consumer);
         getConsumerMessagingAdapter(newBrokerConfig.getName())
-                .connectAndListen(consumer, receivedMessage -> {
+                .connectAndListen(savedConsumer, receivedMessage -> { // Passa o savedConsumer para o callback
                     handleBrokerMessage(receivedMessage, emitterRepository.get(consumerId).orElse(null));
                 });
 
-        return ConsumerDto.fromModel(consumerRepository.save(consumer));
+        // Publica evento de atualização (reconexão)
+        publishConsumerConnectionEvent(consumerId, consumer.getProjectId(), "CONNECTED", "Consumer " + consumerId + " reconnected (broker updated).");
+
+        return ConsumerDto.fromModel(savedConsumer);
     }
 
     @Override
@@ -196,8 +228,7 @@ public class ConsumerService implements IConsumerService {
         Consumer consumer = findAndValidateConsumer(consumerId, projectAuthToken);
         validateBrokerStrategy(consumer.getBroker(), strategyUpdate.getStrategy());
 
-        // Desconectar do broker antigo antes de reconfigurar
-        getConsumerMessagingAdapter(consumer.getBroker()).close(consumer.getId());
+        getConsumerMessagingAdapter(consumer.getBroker()).close(consumer.getId()); // Desconecta do broker antigo
 
         consumer.setStrategy(strategyUpdate.getStrategy());
         consumer.setExchange(strategyUpdate.getExchange());
@@ -205,45 +236,51 @@ public class ConsumerService implements IConsumerService {
         consumer.setRoutingKey(strategyUpdate.getRoutingKey());
         consumer.setHeaders(strategyUpdate.getHeaders() != null ? gson.toJson(strategyUpdate.getHeaders()) : null);
 
-        // Reconectar
+        Consumer savedConsumer = consumerRepository.save(consumer);
+
         Broker newBrokerConfig = buildBrokerConfig(consumer);
         getConsumerMessagingAdapter(newBrokerConfig.getName())
-                .connectAndListen(consumer, receivedMessage -> {
+                .connectAndListen(savedConsumer, receivedMessage -> {
                     handleBrokerMessage(receivedMessage, emitterRepository.get(consumerId).orElse(null));
                 });
 
-        return ConsumerDto.fromModel(consumerRepository.save(consumer));
+        publishConsumerConnectionEvent(consumerId, consumer.getProjectId(), "CONNECTED", "Consumer " + consumerId + " reconnected (strategy updated).");
+
+        return ConsumerDto.fromModel(savedConsumer);
     }
 
     @Override
     public ConsumerDto setQueue(String consumerId, QueueUpdate queueUpdate, String projectAuthToken) {
         Consumer consumer = findAndValidateConsumer(consumerId, projectAuthToken);
 
-        // Desconectar do broker antigo antes de reconfigurar
-        getConsumerMessagingAdapter(consumer.getBroker()).close(consumer.getId());
+        getConsumerMessagingAdapter(consumer.getBroker()).close(consumer.getId()); // Desconecta do broker antigo
 
         consumer.setQueue(queueUpdate.getQueue());
         consumer.setExchange(queueUpdate.getExchange());
         consumer.setRoutingKey(queueUpdate.getRoutingKey());
         consumer.setHeaders(queueUpdate.getHeaders() != null ? gson.toJson(queueUpdate.getHeaders()) : null);
 
-        // Reconectar
+        Consumer savedConsumer = consumerRepository.save(consumer);
+
         Broker newBrokerConfig = buildBrokerConfig(consumer);
         getConsumerMessagingAdapter(newBrokerConfig.getName())
-                .connectAndListen(consumer, receivedMessage -> {
+                .connectAndListen(savedConsumer, receivedMessage -> {
                     handleBrokerMessage(receivedMessage, emitterRepository.get(consumerId).orElse(null));
                 });
 
-        return ConsumerDto.fromModel(consumerRepository.save(consumer));
+        publishConsumerConnectionEvent(consumerId, consumer.getProjectId(), "CONNECTED", "Consumer " + consumerId + " reconnected (queue updated).");
+
+        return ConsumerDto.fromModel(savedConsumer);
     }
 
     @Override
     public ConsumerDto setPersistenceTime(String consumerId, PersistenceUpdate persistenceUpdate, String projectAuthToken) {
         Consumer consumer = findAndValidateConsumer(consumerId, projectAuthToken);
         consumer.setPersistenceTime(persistenceUpdate.getPersistenceTime());
-        return ConsumerDto.fromModel(consumerRepository.save(consumer));
+        Consumer savedConsumer = consumerRepository.save(consumer);
+        // Não há necessidade de reconectar ou publicar evento de conexão para mudança de persistenceTime
+        return ConsumerDto.fromModel(savedConsumer);
     }
-
 
     // --- Métodos Auxiliares ---
     private Consumer findAndValidateConsumer(String consumerId, String projectAuthToken) {
@@ -269,7 +306,6 @@ public class ConsumerService implements IConsumerService {
         }
     }
 
-    // Método para construir o objeto Broker POJO a partir do Consumer
     private Broker buildBrokerConfig(Consumer consumer) {
         Broker broker = new Broker();
         broker.setName(consumer.getBroker());
@@ -281,29 +317,48 @@ public class ConsumerService implements IConsumerService {
         return broker;
     }
 
-    // Callback para lidar com a mensagem recebida do broker
     private void handleBrokerMessage(Message receivedMessage, SseEmitter emitter) {
         try {
-            // Persistir a mensagem se o persistenceTime do consumidor for > 0
-            if (receivedMessage.getExpireAt() != null) { // Verifica se há uma data de expiração (indicando persistência)
+            if (receivedMessage.getExpireAt() != null) {
                 messageRepository.save(receivedMessage);
             }
 
-            // Enviar a mensagem via SSE (se o emitter estiver ativo)
             if (emitter != null) {
                 emitter.send(SseEmitter.event()
                         .id(receivedMessage.getMessageId())
                         .name("message")
-                        .data(MessageDto.fromModel(receivedMessage))); // Envia o DTO da mensagem
+                        .data(MessageDto.fromModel(receivedMessage)));
                 System.out.println("Message " + receivedMessage.getMessageId() + " sent via SSE to consumer " + receivedMessage.getConsumerId());
             } else {
                 System.out.println("SSE Emitter for consumer " + receivedMessage.getConsumerId() + " is null or closed. Message not sent via SSE.");
             }
         } catch (IOException e) {
             System.err.println("Error sending message via SSE for consumer " + receivedMessage.getConsumerId() + ": " + e.getMessage());
-            emitterRepository.remove(receivedMessage.getConsumerId()); // Remove o emitter se houver erro de IO
+            emitterRepository.remove(receivedMessage.getConsumerId());
         } catch (Exception e) {
             System.err.println("Error handling received broker message for consumer " + receivedMessage.getConsumerId() + ": " + e.getMessage());
+        }
+    }
+
+    // --- NOVO MÉTODO AUXILIAR PARA PUBLICAR EVENTOS DE CONEXÃO ---
+    private void publishConsumerConnectionEvent(String consumerId, String projectId, String eventType, String logMessage) {
+        try {
+            ConsumerConnectionEvent event = new ConsumerConnectionEvent();
+            event.setConsumerId(consumerId);
+            event.setProjectId(projectId);
+            // IP da réplica onde este middleware-service está rodando
+            // Em um ambiente real, isso viria de uma variável de ambiente ou serviço de metadados da VM/container
+            event.setReplicaIp(System.getenv("POD_IP") != null ? System.getenv("POD_IP") : "localhost:8081"); // Exemplo simples
+            event.setEventType(eventType);
+
+            String eventJson = gson.toJson(event);
+            String routingKey = CONSUMER_CONNECTION_EXCHANGE + "." + eventType.toLowerCase(); // Ex: consumer.connection.events.connected
+
+            rabbitTemplate.convertAndSend(CONSUMER_CONNECTION_EXCHANGE, routingKey, eventJson);
+            System.out.println("Published consumer connection event: " + logMessage);
+        } catch (Exception e) {
+            System.err.println("Failed to publish consumer connection event for consumer " + consumerId + ": " + e.getMessage());
+            e.printStackTrace();
         }
     }
 
@@ -326,7 +381,6 @@ public class ConsumerService implements IConsumerService {
                 }
                 break;
             default:
-                // Já tratado por BrokerNotSupportedException
                 break;
         }
     }

@@ -1,5 +1,5 @@
 // Caminho: services/discovery-service/src/main/java/com/ufma/tap/discovery/dto/ConsumerConnectionEvent.java
-package com.ufma.tap.discovery.dto;
+package com.ufma.tap.middleware.dto;
 
 import lombok.AllArgsConstructor;
 import lombok.Data;
