@@ -1,0 +1,48 @@
+# ===================================================================
+#      .gitignore para Projeto Java + Maven + Spring Boot + IntelliJ
+# ===================================================================
+
+# Arquivos de Log
+# Ignora qualquer arquivo que termine com .log
+*.log
+
+# Arquivos gerados pelo sistema operacional
+.DS_Store
+Thumbs.db
+
+# -------------------------------------------------------------------
+# ARQUIVOS E PASTAS DO INTELLIJ IDEA
+# -------------------------------------------------------------------
+
+# Pasta principal de configuração da IDE. Contém configurações locais do usuário.
+.idea/
+
+# Pasta de saída do compilador interno do IntelliJ.
+out/
+
+# Arquivos de módulo do IntelliJ.
+*.iml
+*.iws
+*.ipr
+
+# -------------------------------------------------------------------
+# ARQUIVOS E PASTAS DO MAVEN
+# -------------------------------------------------------------------
+
+# Pasta de saída oficial do build do Maven. Contém os arquivos .class e os .jar finais.
+target/
+
+# Arquivos do Maven Wrapper, exceto o script principal
+.mvn/wrapper/maven-wrapper.jar
+
+# -------------------------------------------------------------------
+# ARQUIVOS GERADOS PELO ECLIPSE (caso alguém na equipe use)
+# -------------------------------------------------------------------
+.classpath
+.project
+.settings/
+
+# -------------------------------------------------------------------
+# ARQUIVOS GERADOS PELO VISUAL STUDIO CODE (caso alguém na equipe use)
+# -------------------------------------------------------------------
+.vscode/
