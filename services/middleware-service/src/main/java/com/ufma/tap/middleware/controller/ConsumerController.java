@@ -23,6 +23,7 @@ import java.util.List;
 @RestController
 @RequestMapping("/api/receivers")
 @Validated
+@CrossOrigin(origins = "*", allowedHeaders = "*")
 public class ConsumerController {
 
     @Autowired

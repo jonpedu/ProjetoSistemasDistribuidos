@@ -17,6 +17,7 @@ import java.util.List;
 @RestController
 @RequestMapping("/api/projects")
 @Validated
+@CrossOrigin(origins = "*", allowedHeaders = "*")
 public class RegistryController {
 
     @Autowired

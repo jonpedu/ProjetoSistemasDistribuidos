@@ -14,6 +14,7 @@ import jakarta.validation.Valid; // Para validação de DTOs de entrada
 @RestController
 @RequestMapping("/api/receivers") // Note que é /api/receivers, igual ao middleware, mas em portas diferentes
 @Validated
+@CrossOrigin(origins = "*", allowedHeaders = "*")
 public class ReceiverController {
 
     @Autowired

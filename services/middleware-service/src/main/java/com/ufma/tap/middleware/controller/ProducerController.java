@@ -19,6 +19,7 @@ import org.springframework.validation.annotation.Validated;
 @RestController
 @RequestMapping("/api/senders")
 @Validated
+@CrossOrigin(origins = "*", allowedHeaders = "*")
 public class ProducerController {
 
     @Autowired

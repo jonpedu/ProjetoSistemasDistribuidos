@@ -1,0 +1,51 @@
+name: middleware_demo_app
+description: "Aplicação Flutter para demonstrar o fluxo do Middleware de Mensageria com Integração InterSCity"
+publish_to: 'none'
+
+version: 1.0.0+1
+
+environment:
+  sdk: '>=3.2.3 <4.0.0'
+
+dependencies:
+  flutter:
+    sdk: flutter  
+  cupertino_icons: ^1.0.2
+  # HTTP para comunicação com APIs
+  http: ^1.1.0
+  # Gerenciamento de estado
+  provider: ^6.1.1
+  # Armazenamento local
+  shared_preferences: ^2.2.2
+  # UI Components
+  flutter_svg: ^2.0.9
+  # Animações
+  lottie: ^2.7.0  
+  # Notificações
+  flutter_local_notifications: ^16.3.0
+  # WebSocket para comunicação em tempo real
+  web_socket_channel: ^2.4.0
+  # Validação de formulários
+  form_validator: ^2.1.1
+  # Ícones adicionais
+  font_awesome_flutter: ^10.6.0
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^3.0.0
+
+flutter:
+  uses-material-design: true
+  
+  assets:
+    - assets/images/
+    - assets/animations/
+    - assets/icons/
+  
+  fonts:
+    - family: Roboto
+      fonts:
+        - asset: assets/fonts/Roboto-Regular.ttf
+        - asset: assets/fonts/Roboto-Bold.ttf
+          weight: 700 

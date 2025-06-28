@@ -1,217 +1,201 @@
-# Middleware de Mensageria como Serviço com Integração InterSCity
+# Middleware Demo App - Frontend Flutter
 
-## Sumário
+## Descrição
 
-1.  [Introdução](#1-introdução)
-2.  [Status do Projeto](#2-status-do-projeto)
-3.  [Arquitetura e Tecnologias](#3-arquitetura-e-tecnologias)
-4.  [Pré-requisitos](#4-pré-requisitos)
-5.  [Configuração do Ambiente](#5-configuração-do-ambiente)
-6.  [Execução do Projeto](#6-execução-do-projeto)
-7.  [Fluxo de Uso e API](#7-fluxo-de-uso-e-api)
-8.  [Estrutura do Projeto](#8-estrutura-do-projeto)
-9.  [Equipe](#9-equipe)
+Este é o frontend Flutter para demonstrar o fluxo de funcionalidades do **Middleware de Mensageria como Serviço com Integração InterSCity**. A aplicação permite visualizar e interagir com todos os aspectos do sistema distribuído através de uma interface moderna e intuitiva.
+
+## Funcionalidades
+
+### 🏠 Tela Principal
+- **Dashboard** com visão geral do sistema
+- **Navegação** para todas as funcionalidades
+- **Status do projeto** ativo
+- **Cards de navegação** com ícones intuitivos
+
+### 📝 Registro de Projeto
+- **Formulário** para criar novos projetos
+- **Validação** de campos obrigatórios
+- **Seleção de brokers** suportados
+- **Feedback visual** de sucesso/erro
+
+### 🚀 Gerenciamento de Produtores
+- **Registro de produtores** (senders)
+- **Configuração** de broker, strategy, exchange e queue
+- **Lista de produtores** registrados
+- **Atualização em tempo real**
+
+### 📨 Envio de Mensagens
+- **Seleção de produtor** para envio
+- **Editor JSON** para dados da mensagem
+- **Histórico de mensagens** enviadas
+- **Detalhes** de cada mensagem
+- **Status visual** das mensagens
+
+### 📊 Monitoramento do Sistema
+- **Status do projeto** ativo
+- **Estatísticas** de produtores e mensagens
+- **Consumidores ativos** em tempo real
+- **Informações** detalhadas do sistema
+
+## Tecnologias Utilizadas
+
+- **Flutter 3.16+** - Framework de desenvolvimento
+- **Provider** - Gerenciamento de estado
+- **HTTP** - Comunicação com APIs REST
+- **Material Design 3** - Interface moderna
+- **Responsive Design** - Suporte a múltiplas telas
+
+## Plataformas Suportadas
+
+- ✅ **Android** - APK nativo
+- ✅ **iOS** - App nativo
+- ✅ **Web** - Aplicação web responsiva
+
+## Pré-requisitos
+
+- **Flutter SDK** 3.16.0 ou superior
+- **Dart** 3.2.0 ou superior
+- **Android Studio** / **VS Code** com extensões Flutter
+- **Backend** do middleware rodando (Docker Compose)
+
+## Instalação e Execução
+
+### 1. Clonar o Projeto
+```bash
+cd front-end-flutter/middleware_demo_app
+```
+
+### 2. Instalar Dependências
+```bash
+flutter pub get
+```
+
+### 3. Configurar Backend
+Certifique-se de que o backend está rodando:
+```bash
+# Na pasta raiz do projeto
+docker compose up -d
+```
+
+### 4. Executar a Aplicação
+
+#### Para Android:
+```bash
+flutter run -d android
+```
+
+#### Para iOS:
+```bash
+flutter run -d ios
+```
+
+#### Para Web:
+```bash
+flutter run -d chrome
+```
+
+## Estrutura do Projeto
+
+```
+lib/
+├── main.dart                 # Ponto de entrada da aplicação
+├── models/                   # Modelos de dados
+│   ├── project.dart         # Modelo de projeto
+│   ├── producer.dart        # Modelo de produtor
+│   └── message.dart         # Modelo de mensagem
+├── services/                # Serviços de API
+│   └── api_service.dart     # Comunicação com backend
+├── providers/               # Gerenciamento de estado
+│   └── app_provider.dart    # Provider principal
+├── screens/                 # Telas da aplicação
+│   ├── home_screen.dart     # Tela principal
+│   ├── project_registration_screen.dart
+│   ├── producer_management_screen.dart
+│   ├── message_sending_screen.dart
+│   └── system_monitoring_screen.dart
+└── widgets/                 # Widgets reutilizáveis
+```
+
+## Fluxo de Uso
+
+### 1. Registrar Projeto
+1. Acesse a tela "Registrar Projeto"
+2. Preencha nome, região e selecione brokers
+3. Clique em "Registrar Projeto"
+4. O token de autenticação será gerado automaticamente
+
+### 2. Gerenciar Produtores
+1. Acesse "Gerenciar Produtores"
+2. Preencha os dados do produtor (username, password, etc.)
+3. Clique em "Registrar Produtor"
+4. O produtor aparecerá na lista
+
+### 3. Enviar Mensagens
+1. Acesse "Enviar Mensagens"
+2. Selecione um produtor da lista
+3. Insira os dados JSON da mensagem
+4. Clique em "Enviar Mensagem"
+5. A mensagem será processada pelo middleware
+
+### 4. Monitorar Sistema
+1. Acesse "Monitoramento"
+2. Visualize estatísticas em tempo real
+3. Veja consumidores ativos
+4. Monitore o status do projeto
+
+## Configuração de URLs
+
+As URLs dos serviços são configuradas em `lib/services/api_service.dart`:
+
+```dart
+static const String baseUrl = 'http://localhost';
+static const String registrationUrl = '$baseUrl:8080';
+static const String middlewareUrl = '$baseUrl:8081';
+static const String discoveryUrl = '$baseUrl:8082';
+```
+
+Para desenvolvimento local, mantenha como `localhost`. Para produção, altere para a URL do servidor.
+
+## Build para Produção
+
+### Android APK:
+```bash
+flutter build apk --release
+```
+
+### iOS:
+```bash
+flutter build ios --release
+```
+
+### Web:
+```bash
+flutter build web --release
+```
+
+## Contribuição
+
+1. Faça um fork do projeto
+2. Crie uma branch para sua feature
+3. Commit suas mudanças
+4. Push para a branch
+5. Abra um Pull Request
+
+## Licença
+
+Este projeto é parte do trabalho acadêmico da disciplina de Sistemas Distribuídos da UFMA.
+
+## Suporte
+
+Para dúvidas ou problemas:
+- Verifique se o backend está rodando
+- Confirme as URLs de conexão
+- Verifique os logs do Flutter (`flutter logs`)
+- Consulte a documentação do Flutter
 
 ---
 
-## 1. Introdução
-
-Este é um projeto acadêmico desenvolvido para a disciplina de Sistemas Distribuídos do curso de Engenharia da Computação da Universidade Federal do Maranhão (UFMA).
-
-O objetivo foi implementar um Middleware de Mensageria como Serviço (PaaS), utilizando uma arquitetura de microsserviços. O sistema permite que diferentes aplicações e dispositivos (produtores) enviem mensagens para uma plataforma central, que as roteia de forma confiável para outras aplicações (consumidores) através do padrão Publish-Subscribe.
-
-Como caso de uso prático, o projeto inclui um serviço adaptador que integra o middleware com a plataforma de Cidades Inteligentes InterSCity.
-
-## 2. Status do Projeto
-
-O projeto encontra-se **finalizado**. Toda a infraestrutura base com Docker, a base de dados, o message broker e os serviços (`registration-service`, `middleware-service`, `discovery-service`) estão funcionais e completos conforme o escopo definido.
-
-O projeto encontra-se **finalizado** e **funcional**. Toda a infraestrutura base com Docker, o banco de dados (`PostgreSQL`), o message broker (`RabbitMQ`) e os microsserviços estão completos. O fluxo, desde o envio de uma mensagem até seu registro na plataforma `InterSCity`, foi testado e validado.
-
-## 3. Arquitetura e Tecnologias
-
-O sistema é construído sobre uma arquitetura de microsserviços orquestrada com Docker Compose.
-
-* **Linguagem e Framework**: Java 17 e Spring Boot 3
-* **Banco de Dados**: PostgreSQL
-* **Mensageria (Pub/Sub)**: RabbitMQ
-* **Containerização**: Docker e Docker Compose
-* **Segurança**: Autenticação baseada em JSON Web Tokens (JWT)
-* **Build e Dependências**: Apache Maven
-* **Ferramentas de Desenvolvimento**: Git, GitHub, Postman, VS Code/IntelliJ.
-
-O fluxo arquitetural se dá da seguinte forma:
-1.  **Registration Service**: FPonto de entrada para registrar um projeto (ex: "Monitoramento UFMA") e obter um `authToken` de acesso.
-2.  **Middleware Service**: Usa o `authToken` para gerenciar "Senders" (produtores) e "Receivers" (consumidores). Atua como uma camada de abstração sobre o RabbitMQ, lidando com o envio e recebimento de mensagens.
-3.  **Discovery Service**: Ouve eventos do `middleware-service` para rastrear onde cada consumidor está ativo (qual réplica do middleware), permitindo o roteamento inteligente.
-4. **InterSCity Adapter Service**: Atua como um consumidor especializado. Ele ouve mensagens de uma fila específica no RabbitMQ, as traduz e as envia como novos recursos para a API da plataforma InterSCity.
-
-## 4. Pré-requisitos
-
-Antes de começar, garanta que você tenha as seguintes ferramentas instaladas em seu ambiente de desenvolvimento:
-
-* **Sistema Operacional**: Linux (recomendado), macOS ou Windows com WSL2.
-* **Java Development Kit (JDK)**: Versão 17 ou superior.
-* **Apache Maven**: Para gerenciamento de dependências e build.
-* **Docker e Docker Compose**: Para orquestração dos containers.
-* **Git**: Para controle de versão.
-* **IDE**: IntelliJ IDEA ou VS Code.
-* **Cliente HTTP**: Postman ou similar para testar a API.
-
-## 5. Configuração do Ambiente
-
-Siga os passos abaixo para configurar o projeto localmente.
-
-1.  **Clonar o Repositório**
-    ```bash
-    git clone <URL_DO_REPOSITÓRIO>
-    cd ProjetoSistemasDistribuidos-62f50910776682fc32bd3829145ebf6f700ab91e
-    ```
-
-2.  **Configurar Variáveis de Ambiente**
-    As configurações são gerenciadas pelo arquivo `docker-compose.yml`. A variável mais importante é a `INTERSCITY_API_URL` dentro da definição do `interscity-adapter-service`, que deve apontar para a URL correta da plataforma InterSCity.
-
-## 6. Execução do Projeto
-
-Com o Docker em execução, utilize o Docker Compose para construir as imagens e iniciar todos os serviços.
-
-1.  **Construir e Iniciar os Serviços**
-
-    Execute o comando a partir da raiz do projeto. Use a sintaxe moderna do Docker Compose (com espaço, sem hífen):
-    ```bash
-    docker compose up --build -d
-    ```
-    Este comando irá baixar as imagens necessárias, construir as imagens para cada microsserviço e iniciar todos os containers.
-
-    O `-d` executa os containers em segundo plano (detached mode).
-
-2.  **Verificar o Status dos Containers**
-
-    Para verificar se todos os serviços estão em execução, abra um novo terminal e execute:
-    ```bash
-    docker compose ps
-    ```
-    Você deverá ver o status `Up` ou `running` para os containers `dtm-postgres`, `dtm-rabbitmq`, `dtm-registration-service`, `dtm-middleware-service` e `dtm-discovery-service`.
-
-3.  **Acessar Serviços**
-    * **Registration Service**: `http://localhost:8080`
-    * **Middleware Service**: `http://localhost:8081`
-    * **Discovery Service**: `http://localhost:8082`
-    * **RabbitMQ Management UI**: `http://localhost:15672` (login: `guest` / `guest`)
-
-4.  **Parar os Serviços**
-
-    Para parar a execução de todos os containers, pressione `Ctrl + C` no terminal onde o `docker compose up` está rodando ou execute:
-    ```bash
-    docker compose down
-    ```
-
-## 7. Fluxo de Uso e API
-
-Este é o fluxo completo para enviar um dado de um "sensor" até a plataforma InterSCity.
-
-### Pré-requisito: Criar a "Capacidade" no InterSCity
-
-Antes de registrar um sensor, a plataforma precisa saber que "tipo" de dado ele mede. Execute esta requisição uma vez para criar a capacidade.
-
-* **Método**: `POST`
-* **URL**: `https://cidadesinteligentes.lsdi.ufma.br/interscity_lh/catalog/capabilities/`
-* **Corpo da Requisição**:
-    ```json
-    {
-      "name": "room_occupancy",
-      "description": "Numero de ocupantes em uma sala",
-      "capability_type": "sensor"
-    }
-    ```
-
-### Passo 1: Registrar um Projeto no Middleware
-
-* **Método**: `POST`
-* **URL**: `http://localhost:8080/api/projects`
-* **Corpo da Requisição**:
-    ```json
-    {
-      "name": "MonitoramentoSalasUFMA",
-      "region": "BR",
-      "supportedBrokers": ["rabbitmq"]
-    }
-    ```
-* **Ação**: Guarde o `authToken` retornado na resposta.
-
-### Passo 2: Registrar o "Sensor" como um Produtor (Sender)
-
-* **Método**: `POST`
-* **URL**: `http://localhost:8081/api/senders`
-* **Headers**: `Authorization: Bearer <SEU_AUTH_TOKEN_AQUI>`
-* **Corpo da Requisição**:
-    ```json
-    {
-        "username": "sensorocupacaosala01",
-        "password": "Password123#",
-        "broker": "rabbitmq",
-        "strategy": "direct",
-        "exchange": "exchange.direct.tasks",
-        "queue": "queue.tasks.new"
-    }
-    ```
-* **Ação**: Guarde o `id` do produtor retornado na resposta.
-
-### Passo 3: Enviar os Dados do Sensor
-
-Esta é a ação que dispara todo o fluxo.
-
-* **Método**: `POST`
-* **URL**: `http://localhost:8081/api/senders/{ID_DO_PRODUTOR_AQUI}/send`
-* **Headers**: `Authorization: Bearer <SEU_AUTH_TOKEN_AQUI>`
-* **Corpo da Requisição**:
-    ```json
-    {
-        "data": "{\"description\": \"Sensor de Ocupacao - Sala 1 CCET\", \"capabilities\": [\"room_occupancy\"], \"status\": \"active\", \"lat\": -2.55, \"lon\": -44.30}"
-    }
-    ```
-* **Resultado**: O `middleware-service` retornará `200 OK`. O `interscity-adapter-service` receberá a mensagem e a registrará na plataforma InterSCity. Você pode confirmar o sucesso olhando os logs do adaptador (`docker-compose logs -f interscity-adapter-service`) e verificando o recurso criado na plataforma.
-
----
-
-## 8. Estrutura do Projeto 
-
-```
-├── Documents/
-│   └── PLANEJAMENTO SISTEMAS.pdf
-├── services/
-│   ├── discovery-service/
-│   │   └── src/main/java/com/ufma/tap/
-│   │       └── discovery/
-│   │           └── pom.xml
-│   ├── interscity-adapter-service/
-│   │   └── src/main/java/com/ufma/tap/
-│   │       └── interscity/
-│   │           └── pom.xml  
-|   ├── middleware-service/
-│   │   └── src/main/java/com/ufma/tap/
-│   │       └── middleware/
-│   │           └── pom.xml
-|   └── registration-service/
-│       └── src/main/java/com/ufma/tap/
-│           └── registration/
-│               └── pom.xml
-├── .gitignore
-├── docker-compose.yml
-└── README.md
-```
-
-Cada pasta de serviço contém uma aplicação Spring Boot completa e independente, com seu próprio `pom.xml` e `Dockerfile`.
-
-## 9. Equipe
-
-* **FRANCISCO GABRIEL SANTOS** - 2020014544
-* **KEVEN GUSTAVO DOS SANTOS GOMES** - 2020034420
-* **KAUAN GARCIA PEREIRA MARTINS** - 2021026595
-* **JOÃO PEDRO MIRANDA SOUSA** - 2022011087
-* **WESLEY DOS SANTOS GATINHO** - 2020051056
-
-**Professor Orientador**: Dr. LUIZ HENRIQUE NEVES RODRIGUES
+**Desenvolvido para a disciplina de Sistemas Distribuídos - UFMA**
 
 
 
