@@ -5,26 +5,18 @@ version: '3.8'
 services:
   # --- Database Service ---
   postgres:
-    image: postgres:13-alpine # Ou mysql:8 para MySQL
+    image: postgres:13-alpine
     container_name: dtm-postgres
     environment:
       POSTGRES_DB: dtm_db
       POSTGRES_USER: user
       POSTGRES_PASSWORD: password
-      # Para MySQL:
-      # MYSQL_ROOT_PASSWORD: password
-      # MYSQL_DATABASE: dtm_db
-      # MYSQL_USER: user
-      # MYSQL_PASSWORD: password
     ports:
-      - "5432:5432" # Para PostgreSQL
-      # - "3306:3306" # Para MySQL
+      - "5432:5432"
     volumes:
-      - postgres_data:/var/lib/postgresql/data # Volume persistente para dados
-      # - mysql_data:/var/lib/mysql # Para MySQL
+      - postgres_data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U user -d dtm_db"] # Para PostgreSQL
-      # test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-ppassword"] # Para MySQL
+      test: ["CMD-SHELL", "pg_isready -U user -d dtm_db"]
       interval: 5s
       timeout: 5s
       retries: 5
@@ -34,8 +26,8 @@ services:
     image: rabbitmq:3-management-alpine
     container_name: dtm-rabbitmq
     ports:
-      - "5672:5672" # Porta padrão do AMQP
-      - "15672:15672" # Porta da interface de gerenciamento (Web UI)
+      - "5672:5672"
+      - "15672:15672"
     environment:
       RABBITMQ_DEFAULT_USER: guest
       RABBITMQ_DEFAULT_PASS: guest
@@ -48,22 +40,21 @@ services:
   # --- Application Services ---
   registration-service:
     build:
-      context: ./services/registration-service # Caminho para o Dockerfile do serviço
+      context: ./services/registration-service
       dockerfile: Dockerfile
     container_name: dtm-registration-service
     ports:
       - "8080:8080"
     environment:
       SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/dtm_db
-      # Para MySQL: SPRING_DATASOURCE_URL: jdbc:mysql://postgres:3306/dtm_db
       SPRING_DATASOURCE_USERNAME: user
       SPRING_DATASOURCE_PASSWORD: password
-      SPRING_JPA_HIBERNATE_DDL_AUTO: update # create, update, validate
+      SPRING_JPA_HIBERNATE_DDL_AUTO: update
       JWT_SECRET: yourStrongJwtSecretKeyThatIsAtLeast256BitsLongForHS256
-      JWT_EXPIRATION: 3600000 # 1 hour in milliseconds
+      JWT_EXPIRATION: 86400000
     depends_on:
       postgres:
-        condition: service_healthy # Garante que o DB esteja pronto
+        condition: service_healthy
 
   middleware-service:
     build:
@@ -71,18 +62,18 @@ services:
       dockerfile: Dockerfile
     container_name: dtm-middleware-service
     ports:
-      - "8081:8081" # Porta diferente para evitar conflito com registration-service
+      - "8081:8081"
     environment:
       SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/dtm_db
       SPRING_DATASOURCE_USERNAME: user
       SPRING_DATASOURCE_PASSWORD: password
       SPRING_JPA_HIBERNATE_DDL_AUTO: update
-      RABBITMQ_HOST: rabbitmq # Nome do serviço RabbitMQ no Docker Compose
+      RABBITMQ_HOST: rabbitmq
       RABBITMQ_PORT: 5672
       RABBITMQ_USERNAME: guest
       RABBITMQ_PASSWORD: guest
       JWT_SECRET: yourStrongJwtSecretKeyThatIsAtLeast256BitsLongForHS256
-      JWT_EXPIRATION: 3600000
+      JWT_EXPIRATION: 86400000
     depends_on:
       postgres:
         condition: service_healthy
@@ -106,13 +97,34 @@ services:
       RABBITMQ_USERNAME: guest
       RABBITMQ_PASSWORD: guest
       JWT_SECRET: yourStrongJwtSecretKeyThatIsAtLeast256BitsLongForHS256
-      JWT_EXPIRATION: 3600000
+      JWT_EXPIRATION: 86400000
     depends_on:
       postgres:
         condition: service_healthy
       rabbitmq:
         condition: service_healthy
 
+  # --- NOVO SERVIÇO ADAPTADOR ---
+  # ADICIONE ESTE BLOCO INTEIRO AO SEU ARQUIVO
+  interscity-adapter-service:
+    build:
+      context: ./services/interscity-adapter-service # Aponta para a pasta do novo serviço
+      dockerfile: Dockerfile
+    container_name: dtm-interscity-adapter
+    ports:
+      - "8083:8083" # Expõe a nova porta que definimos (8083)
+    environment:
+      # Configuração para conectar ao RabbitMQ
+      RABBITMQ_HOST: rabbitmq
+      RABBITMQ_PORT: 5672
+      RABBITMQ_USERNAME: guest
+      RABBITMQ_PASSWORD: guest
+      # Variável de ambiente com a URL da API do InterSCity
+      INTERSCITY_API_URL: https://cidadesinteligentes.lsdi.ufma.br/interscity_lh
+
+    depends_on:
+      rabbitmq:
+        condition: service_healthy # Garante que o RabbitMQ esteja pronto antes de iniciar
+
 volumes:
   postgres_data:
-  # mysql_data:

@@ -1,5 +1,5 @@
 // Caminho: services/middleware-service/src/main/java/com/ufma/tap/middleware/dto/Response.java
-package com.ufma.tap.middleware.dto;
+package com.ufma.tap.interscity.dto;
 
 import lombok.AllArgsConstructor;
 import lombok.Data;
