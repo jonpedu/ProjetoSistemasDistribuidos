@@ -112,8 +112,9 @@ public class ProducerService implements IProducerService {
         // para adaptadores específicos (ex: InterSCity Adapter).
         // Se o produtor for para o InterSCity Adapter, declaramos as queues/exchanges necessárias.
         if (INTERSCITY_ADAPTER_STRATEGY_NAME.equals(producer.getBroker())) {
+            System.out.println("🔗 [INTERSCITY] Conectando produtor InterSCity: " + producerId);
             declareInterscityAdapterQueueAndExchange();
-            System.out.println("Producer " + producerId + " (InterSCity Adapter) resources declared.");
+            System.out.println("✅ [INTERSCITY] Produtor " + producerId + " conectado e recursos declarados para InterSCity Adapter.");
         } else {
             Broker brokerConfig = buildBrokerConfig(producer);
             getProducerMessagingAdapter(producer.getBroker()).connect(brokerConfig);
@@ -143,10 +144,21 @@ public class ProducerService implements IProducerService {
         // --- Lógica para rotear para o InterSCity Adapter ou para o broker padrão ---
         if (INTERSCITY_ADAPTER_STRATEGY_NAME.equals(brokerConfig.getStrategy())) {
             // Se a mensagem for destinada ao InterSCity Adapter
+            System.out.println("🚀 [INTERSCITY] Iniciando envio para InterSCity Adapter...");
+            System.out.println("📋 [INTERSCITY] Producer ID: " + producerId);
+            System.out.println("📋 [INTERSCITY] Message ID: " + messageToSend.getMessageId());
+            System.out.println("📋 [INTERSCITY] Data: " + messageToSend.getData());
+            System.out.println("📋 [INTERSCITY] Headers: " + messageToSend.getCustomHeaders());
+            
             declareInterscityAdapterQueueAndExchange(); // Garante que a infra RabbitMQ está pronta
             String messageJson = gson.toJson(messageToSend); // Serializa MessageToSend completo
+            
+            System.out.println("📤 [INTERSCITY] Enviando para RabbitMQ - Exchange: " + INTERSCITY_ADAPTER_EXCHANGE);
+            System.out.println("📤 [INTERSCITY] Routing Key: " + INTERSCITY_ADAPTER_ROUTING_KEY);
+            System.out.println("📤 [INTERSCITY] Payload JSON: " + messageJson);
+            
             rabbitTemplate.convertAndSend(INTERSCITY_ADAPTER_EXCHANGE, INTERSCITY_ADAPTER_ROUTING_KEY, messageJson);
-            System.out.println("Message sent to InterSCity Adapter via RabbitMQ: " + messageToSend.getMessageId());
+            System.out.println("✅ [INTERSCITY] Mensagem enviada com sucesso para InterSCity Adapter via RabbitMQ: " + messageToSend.getMessageId());
         } else {
             // Envia a mensagem usando o adaptador apropriado para o broker padrão (ex: RabbitMQ, Kafka)
             getProducerMessagingAdapter(brokerConfig.getName()).send(messageToSend, brokerConfig);
@@ -181,7 +193,9 @@ public class ProducerService implements IProducerService {
 
         // Se o novo broker for InterSCity Adapter, declare seus recursos RabbitMQ
         if (INTERSCITY_ADAPTER_STRATEGY_NAME.equals(producer.getBroker())) {
+            System.out.println("⚙️ [INTERSCITY] Configurando produtor " + producerId + " para InterSCity Adapter...");
             declareInterscityAdapterQueueAndExchange();
+            System.out.println("✅ [INTERSCITY] Produtor " + producerId + " configurado para InterSCity Adapter!");
         }
 
         return ProducerDto.fromModel(producerRepository.save(producer));
@@ -284,18 +298,23 @@ public class ProducerService implements IProducerService {
 
     // --- NOVO MÉTODO AUXILIAR PARA DECLARAR RECURSOS DO RABBITMQ PARA O INTERSCITY ADAPTER ---
     private void declareInterscityAdapterQueueAndExchange() {
+        System.out.println("🔧 [INTERSCITY] Configurando recursos RabbitMQ para InterSCity Adapter...");
+        
         // Declara a fila
         Queue interscityQueue = new Queue(INTERSCITY_ADAPTER_QUEUE, true); // Durável
         amqpAdmin.declareQueue(interscityQueue);
+        System.out.println("📋 [INTERSCITY] Fila declarada: " + INTERSCITY_ADAPTER_QUEUE);
 
         // Declara o exchange (DirectExchange, conforme o RabbitMQConfig do interscity-adapter-service)
         DirectExchange interscityExchange = new DirectExchange(INTERSCITY_ADAPTER_EXCHANGE);
         amqpAdmin.declareExchange(interscityExchange);
+        System.out.println("📋 [INTERSCITY] Exchange declarado: " + INTERSCITY_ADAPTER_EXCHANGE);
 
         // Declara o binding
         Binding binding = BindingBuilder.bind(interscityQueue).to(interscityExchange).with(INTERSCITY_ADAPTER_ROUTING_KEY);
         amqpAdmin.declareBinding(binding);
-        System.out.println("Declared RabbitMQ resources for InterSCity Adapter.");
+        System.out.println("📋 [INTERSCITY] Binding configurado: " + INTERSCITY_ADAPTER_ROUTING_KEY);
+        System.out.println("✅ [INTERSCITY] Recursos RabbitMQ para InterSCity Adapter configurados com sucesso!");
     }
 
 }

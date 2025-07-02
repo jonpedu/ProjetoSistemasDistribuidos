@@ -39,16 +39,23 @@ public class RabbitMQListener {
 
     @RabbitListener(queues = TARGET_QUEUE)
     public void receiveMessage(String messageJson) {
-        // Bloco de código final e completo
-        System.out.println("=====================================================");
-        System.out.println("MENSAGEM RECEBIDA PELO ADAPTADOR! Payload: " + messageJson);
-        System.out.println("-> Tentando enviar para o InterSCity...");
+        System.out.println("🔄 [INTERSCITY ADAPTER] =====================================================");
+        System.out.println("📥 [INTERSCITY ADAPTER] MENSAGEM RECEBIDA DO MIDDLEWARE!");
+        System.out.println("📋 [INTERSCITY ADAPTER] Fila: " + TARGET_QUEUE);
+        System.out.println("📋 [INTERSCITY ADAPTER] Exchange: " + TARGET_EXCHANGE);
+        System.out.println("📋 [INTERSCITY ADAPTER] Routing Key: " + ROUTING_KEY);
+        System.out.println("📋 [INTERSCITY ADAPTER] Payload recebido: " + messageJson);
+        System.out.println("🚀 [INTERSCITY ADAPTER] Iniciando processamento para InterSCity...");
 
         try {
             // Reativando a chamada para o serviço que se conecta ao InterSCity
             interScityService.registerResource(messageJson);
+            System.out.println("✅ [INTERSCITY ADAPTER] Mensagem processada com sucesso!");
         } catch (Exception e) {
-            System.err.println("### FALHA AO ENVIAR PARA O INTERSCITY ### -> " + e.getMessage());
+            System.err.println("❌ [INTERSCITY ADAPTER] FALHA AO ENVIAR PARA O INTERSCITY!");
+            System.err.println("❌ [INTERSCITY ADAPTER] Erro: " + e.getMessage());
+            e.printStackTrace();
         }
+        System.out.println("🔄 [INTERSCITY ADAPTER] =====================================================");
     }
 }

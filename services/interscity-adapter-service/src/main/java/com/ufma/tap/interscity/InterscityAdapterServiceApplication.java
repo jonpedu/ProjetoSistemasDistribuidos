@@ -8,8 +8,15 @@ import org.springframework.boot.autoconfigure.SpringBootApplication;
 public class InterscityAdapterServiceApplication {
 
     public static void main(String[] args) {
+        System.out.println("🚀 [INTERSCITY ADAPTER] Iniciando InterSCity Adapter Service...");
+        System.out.println("📋 [INTERSCITY ADAPTER] Porta: 8083");
+        System.out.println("📋 [INTERSCITY ADAPTER] RabbitMQ: Configurado");
+        System.out.println("📋 [INTERSCITY ADAPTER] InterSCity API: Configurado");
+        
         SpringApplication.run(InterscityAdapterServiceApplication.class, args);
+        
+        System.out.println("✅ [INTERSCITY ADAPTER] InterSCity Adapter Service iniciado com sucesso!");
+        System.out.println("👂 [INTERSCITY ADAPTER] Aguardando mensagens do Middleware...");
     }
-
 
 }
