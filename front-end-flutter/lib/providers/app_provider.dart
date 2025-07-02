@@ -208,7 +208,10 @@ class AppProvider extends ChangeNotifier {
       isLoading = true;
       error = null;
 
-      final messages = await _apiService.getMessages(_currentProject!.token);
+      final messages = await _apiService.getMessages(
+        _currentProject!.token,
+        _currentProject!.id,
+      );
       _messages = messages;
 
       isLoading = false;
