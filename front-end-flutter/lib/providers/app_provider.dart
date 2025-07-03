@@ -73,9 +73,9 @@ class AppProvider extends ChangeNotifier {
         _currentProject = Project(
           id: projectId,
           name: 'Projeto Carregado',
-          description: 'Projeto carregado do armazenamento local',
-          status: 'ACTIVE',
-          createdAt: DateTime.now(),
+          location: 'projeto-carregado.multibroker.com',
+          region: 'BR',
+          supportedBrokers: ['rabbitmq'],
           token: token,
         );
         notifyListeners();
@@ -111,9 +111,12 @@ class AppProvider extends ChangeNotifier {
       isLoading = true;
       error = null;
 
+      // Limpar o nome para ser alfanumérico apenas
+      final cleanName = name.replaceAll(RegExp(r'[^a-zA-Z0-9]'), '');
+
       final producer = await _apiService.createProducer(
         _currentProject!.token,
-        name,
+        cleanName,
         description,
       );
 

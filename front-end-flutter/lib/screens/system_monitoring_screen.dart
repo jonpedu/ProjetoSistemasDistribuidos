@@ -387,8 +387,8 @@ class _SystemMonitoringScreenState extends State<SystemMonitoringScreen> {
                   provider.currentProject!.name,
                 ),
                 _buildProjectStatItem(
-                  'Status',
-                  provider.currentProject!.status,
+                  'Região',
+                  provider.currentProject!.region,
                 ),
                 _buildProjectStatItem(
                   'Produtores Ativos',
@@ -399,8 +399,8 @@ class _SystemMonitoringScreenState extends State<SystemMonitoringScreen> {
                   provider.messages.length.toString(),
                 ),
                 _buildProjectStatItem(
-                  'Data de Criação',
-                  _formatDate(provider.currentProject!.createdAt),
+                  'Localização',
+                  provider.currentProject!.location,
                 ),
                 const SizedBox(height: 12),
                 Container(

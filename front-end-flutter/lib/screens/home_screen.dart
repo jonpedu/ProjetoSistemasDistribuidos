@@ -2,10 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../providers/app_provider.dart';
-import 'message_sending_screen.dart';
-import 'producer_management_screen.dart';
+import 'error_logs_screen.dart';
+import 'interscity_integration_screen.dart';
+import 'new_interscity_integration_screen.dart';
 import 'project_registration_screen.dart';
-import 'system_monitoring_screen.dart';
+import 'traffic_sensor_dashboard.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -28,7 +29,7 @@ class _HomeScreenState extends State<HomeScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Middleware Demo App'),
+        title: const Text('Middleware InterSCity'),
         actions: [
           Consumer<AppProvider>(
             builder: (context, provider, child) {
@@ -94,7 +95,7 @@ class _HomeScreenState extends State<HomeScreen> {
             ),
             const SizedBox(height: 24),
             Text(
-              'Bem-vindo ao Middleware Demo App',
+              'Middleware InterSCity',
               style: Theme.of(context).textTheme.headlineSmall?.copyWith(
                     fontWeight: FontWeight.bold,
                   ),
@@ -102,7 +103,7 @@ class _HomeScreenState extends State<HomeScreen> {
             ),
             const SizedBox(height: 16),
             Text(
-              'Esta aplicação demonstra o fluxo completo de um middleware de mensageria com integração InterSCity.',
+              'Middleware que simplifica a integração com InterSCity para cidades inteligentes.',
               style: Theme.of(context).textTheme.bodyLarge,
               textAlign: TextAlign.center,
             ),
@@ -146,52 +147,58 @@ class _HomeScreenState extends State<HomeScreen> {
                   mainAxisSpacing: 16,
                   children: [
                     _buildMenuCard(
-                      icon: Icons.person_add,
-                      title: 'Gerenciar Produtores',
-                      subtitle: 'Criar e gerenciar produtores de mensagens',
+                      icon: Icons.traffic,
+                      title: 'Sensores de Trânsito',
+                      subtitle: 'Dashboard de sensores com dados reais',
                       onTap: () {
                         Navigator.push(
                           context,
                           MaterialPageRoute(
                             builder: (context) =>
-                                const ProducerManagementScreen(),
+                                const TrafficSensorDashboard(),
                           ),
                         );
                       },
                     ),
                     _buildMenuCard(
-                      icon: Icons.send,
-                      title: 'Enviar Mensagens',
-                      subtitle: 'Enviar mensagens através dos produtores',
-                      onTap: () {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (context) => const MessageSendingScreen(),
-                          ),
-                        );
-                      },
-                    ),
-                    _buildMenuCard(
-                      icon: Icons.monitor,
-                      title: 'Monitoramento',
-                      subtitle: 'Monitorar o status do sistema',
+                      icon: Icons.cloud_sync,
+                      title: 'Integração InterSCity',
+                      subtitle: 'Monitorar integração com InterSCity',
                       onTap: () {
                         Navigator.push(
                           context,
                           MaterialPageRoute(
                             builder: (context) =>
-                                const SystemMonitoringScreen(),
+                                const InterSCityIntegrationScreen(),
                           ),
                         );
                       },
                     ),
                     _buildMenuCard(
-                      icon: Icons.analytics,
-                      title: 'Estatísticas',
-                      subtitle: 'Visualizar estatísticas do projeto',
+                      icon: Icons.add_circle,
+                      title: 'Nova Integração',
+                      subtitle: 'Criar integração com InterSCity',
                       onTap: () {
-                        _showStatistics();
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (context) =>
+                                const NewInterSCityIntegrationScreen(),
+                          ),
+                        );
+                      },
+                    ),
+                    _buildMenuCard(
+                      icon: Icons.bug_report,
+                      title: 'Logs de Erro',
+                      subtitle: 'Visualizar e gerenciar erros do app',
+                      onTap: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (context) => const ErrorLogsScreen(),
+                          ),
+                        );
                       },
                     ),
                   ],
@@ -228,44 +235,29 @@ class _HomeScreenState extends State<HomeScreen> {
                 ),
                 Chip(
                   label: Text(
-                    provider.currentProject?.status ?? '',
+                    provider.currentProject?.region ?? 'BR',
                     style: const TextStyle(fontSize: 12),
                   ),
-                  backgroundColor: provider.currentProject?.status == 'ACTIVE'
-                      ? Colors.green.withOpacity(0.1)
-                      : Colors.orange.withOpacity(0.1),
+                  backgroundColor: Colors.blue.withOpacity(0.1),
                 ),
               ],
             ),
             const SizedBox(height: 8),
             Text(
-              provider.currentProject?.description ?? '',
+              'Região: ${provider.currentProject?.region ?? 'BR'} | Localização: ${provider.currentProject?.location ?? ''}',
               style: Theme.of(context).textTheme.bodyMedium,
             ),
             const SizedBox(height: 8),
             Row(
               children: [
                 Icon(
-                  Icons.people,
+                  Icons.cloud,
                   size: 16,
                   color: Colors.grey[600],
                 ),
                 const SizedBox(width: 4),
                 Text(
-                  '${provider.producers.length} produtores',
-                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        color: Colors.grey[600],
-                      ),
-                ),
-                const SizedBox(width: 16),
-                Icon(
-                  Icons.message,
-                  size: 16,
-                  color: Colors.grey[600],
-                ),
-                const SizedBox(width: 4),
-                Text(
-                  '${provider.messages.length} mensagens',
+                  'Integração InterSCity Ativa',
                   style: Theme.of(context).textTheme.bodySmall?.copyWith(
                         color: Colors.grey[600],
                       ),
@@ -341,52 +333,6 @@ class _HomeScreenState extends State<HomeScreen> {
             },
             child: const Text('Sair'),
           ),
-        ],
-      ),
-    );
-  }
-
-  void _showStatistics() {
-    final provider = context.read<AppProvider>();
-
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Estatísticas do Projeto'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            _buildStatItem(
-                'Produtores Ativos', provider.producers.length.toString()),
-            _buildStatItem(
-                'Mensagens Enviadas', provider.messages.length.toString()),
-            _buildStatItem(
-                'Status do Projeto', provider.currentProject?.status ?? ''),
-            _buildStatItem(
-                'Data de Criação',
-                provider.currentProject?.createdAt.toString().split(' ')[0] ??
-                    ''),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Fechar'),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildStatItem(String label, String value) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 4.0),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          Text(label, style: const TextStyle(fontWeight: FontWeight.w500)),
-          Text(value, style: const TextStyle(fontWeight: FontWeight.bold)),
         ],
       ),
     );

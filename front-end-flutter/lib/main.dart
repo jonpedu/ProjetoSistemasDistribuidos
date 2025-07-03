@@ -16,11 +16,11 @@ class MyApp extends StatelessWidget {
     return ChangeNotifierProvider(
       create: (context) => AppProvider(),
       child: MaterialApp(
-        title: 'Middleware Demo App',
+        title: 'Middleware InterSCity',
         debugShowCheckedModeBanner: false,
         theme: ThemeData(
           colorScheme: ColorScheme.fromSeed(
-            seedColor: Colors.blue,
+            seedColor: Colors.green,
             brightness: Brightness.light,
           ),
           useMaterial3: true,
