@@ -16,6 +16,7 @@ class _TrafficSensorDashboardState extends State<TrafficSensorDashboard> {
   final ApiService _apiService = ApiService();
   List<TrafficSensor> _sensors = [];
   bool _isLoading = false;
+  bool _isRefreshing = false;
   String? _error;
 
   @override
@@ -31,6 +32,9 @@ class _TrafficSensorDashboardState extends State<TrafficSensorDashboard> {
     });
 
     try {
+      // Simular delay de API
+      await Future.delayed(const Duration(seconds: 2));
+
       // Simular dados de sensores de trânsito
       _sensors = [
         TrafficSensor(
@@ -77,6 +81,68 @@ class _TrafficSensorDashboardState extends State<TrafficSensorDashboard> {
     } finally {
       setState(() {
         _isLoading = false;
+      });
+    }
+  }
+
+  Future<void> _refreshSensors() async {
+    if (_isRefreshing) return;
+
+    setState(() {
+      _isRefreshing = true;
+      _error = null;
+    });
+
+    try {
+      // Simular delay de API
+      await Future.delayed(const Duration(seconds: 2));
+
+      // Simular dados de sensores de trânsito com valores atualizados
+      _sensors = [
+        TrafficSensor(
+          id: 'traffic_001',
+          name: 'Sensor Av. Principal',
+          location: 'Av. Principal, 123 - São Luís/MA',
+          latitude: -2.5297,
+          longitude: -44.3028,
+          vehicleCount: 52, // Valor atualizado
+          averageSpeed: 38.2, // Valor atualizado
+          congestionLevel: 'Baixo',
+          status: 'Ativo',
+          lastUpdate: DateTime.now(),
+        ),
+        TrafficSensor(
+          id: 'traffic_002',
+          name: 'Sensor Shopping',
+          location: 'Shopping da Ilha - São Luís/MA',
+          latitude: -2.5310,
+          longitude: -44.3040,
+          vehicleCount: 76, // Valor atualizado
+          averageSpeed: 22.1, // Valor atualizado
+          congestionLevel: 'Moderado', // Valor atualizado
+          status: 'Ativo',
+          lastUpdate: DateTime.now(),
+        ),
+        TrafficSensor(
+          id: 'traffic_003',
+          name: 'Sensor Centro Histórico',
+          location: 'Centro Histórico - São Luís/MA',
+          latitude: -2.5280,
+          longitude: -44.3000,
+          vehicleCount: 28, // Valor atualizado
+          averageSpeed: 45.3, // Valor atualizado
+          congestionLevel: 'Baixo',
+          status: 'Ativo',
+          lastUpdate: DateTime.now(),
+        ),
+      ];
+    } catch (e) {
+      setState(() {
+        _error = 'Erro ao atualizar sensores: $e';
+      });
+    } finally {
+      setState(() {
+        _isRefreshing = false;
       });
     }
   }
@@ -132,40 +198,75 @@ class _TrafficSensorDashboardState extends State<TrafficSensorDashboard> {
         actions: [
           IconButton(
             icon: const Icon(Icons.refresh),
-            onPressed: _loadSensors,
+            onPressed: _refreshSensors,
           ),
         ],
       ),
-      body: _isLoading
-          ? const Center(child: CircularProgressIndicator())
-          : _error != null
-              ? Center(
+      body: Stack(
+        children: [
+          _isLoading
+              ? const Center(
                   child: Column(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      Icon(Icons.error, size: 64, color: Colors.red.shade300),
-                      const SizedBox(height: 16),
-                      Text(
-                        _error!,
-                        style: Theme.of(context).textTheme.bodyLarge,
-                        textAlign: TextAlign.center,
-                      ),
-                      const SizedBox(height: 16),
-                      ElevatedButton(
-                        onPressed: _loadSensors,
-                        child: const Text('Tentar Novamente'),
-                      ),
+                      CircularProgressIndicator(),
+                      SizedBox(height: 16),
+                      Text('Carregando sensores...'),
                     ],
                   ),
                 )
-              : Column(
+              : _error != null
+                  ? Center(
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(Icons.error,
+                              size: 64, color: Colors.red.shade300),
+                          const SizedBox(height: 16),
+                          Text(
+                            _error!,
+                            style: Theme.of(context).textTheme.bodyLarge,
+                            textAlign: TextAlign.center,
+                          ),
+                          const SizedBox(height: 16),
+                          ElevatedButton(
+                            onPressed: _loadSensors,
+                            child: const Text('Tentar Novamente'),
+                          ),
+                        ],
+                      ),
+                    )
+                  : RefreshIndicator(
+                      onRefresh: _refreshSensors,
+                      child: Column(
+                        children: [
+                          _buildHeader(),
+                          Expanded(
+                            child: _buildSensorsList(),
+                          ),
+                        ],
+                      ),
+                    ),
+          // Loading overlay durante o refresh
+          if (_isRefreshing)
+            Container(
+              color: Colors.black.withOpacity(0.3),
+              child: const Center(
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    _buildHeader(),
-                    Expanded(
-                      child: _buildSensorsList(),
+                    CircularProgressIndicator(color: Colors.white),
+                    SizedBox(height: 16),
+                    Text(
+                      'Atualizando sensores...',
+                      style: TextStyle(color: Colors.white, fontSize: 16),
                     ),
                   ],
                 ),
+              ),
+            ),
+        ],
+      ),
     );
   }
 
@@ -338,16 +439,6 @@ class _TrafficSensorDashboardState extends State<TrafficSensorDashboard> {
                       style: Theme.of(context).textTheme.bodySmall?.copyWith(
                             color: Colors.grey.shade600,
                           ),
-                    ),
-                    const Spacer(),
-                    ElevatedButton.icon(
-                      onPressed: () => _sendSensorDataToInterSCity(sensor),
-                      icon: const Icon(Icons.cloud_upload),
-                      label: const Text('Enviar para InterSCity'),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.orange.shade600,
-                        foregroundColor: Colors.white,
-                      ),
                     ),
                   ],
                 ),
