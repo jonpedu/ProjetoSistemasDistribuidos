@@ -279,7 +279,7 @@ class _TrafficSensorDashboardState extends State<TrafficSensorDashboard> {
         children: [
           Row(
             children: [
-              Icon(Icons.traffic, color: Colors.orange.shade700, size: 32),
+              Icon(Icons.traffic, color: Colors.orange.shade700, size: 28),
               const SizedBox(width: 12),
               Expanded(
                 child: Column(
@@ -345,7 +345,7 @@ class _TrafficSensorDashboardState extends State<TrafficSensorDashboard> {
           padding: const EdgeInsets.all(12),
           child: Column(
             children: [
-              Icon(icon, color: color, size: 24),
+              Icon(icon, color: color, size: 20),
               const SizedBox(height: 4),
               Text(
                 value,

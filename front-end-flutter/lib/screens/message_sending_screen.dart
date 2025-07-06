@@ -186,7 +186,7 @@ class _MessageSendingScreenState extends State<MessageSendingScreen> {
                   icon: const Icon(Icons.send),
                   label: const Text('Enviar Mensagem'),
                   style: ElevatedButton.styleFrom(
-                    padding: const EdgeInsets.symmetric(vertical: 16),
+                    padding: const EdgeInsets.symmetric(vertical: 12),
                   ),
                 ),
               ),

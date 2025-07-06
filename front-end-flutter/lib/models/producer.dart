@@ -20,15 +20,29 @@ class Producer {
   });
 
   factory Producer.fromJson(Map<String, dynamic> json) {
+    // Log para debug do que está chegando da API
+    print('🔍 [Producer.fromJson] Raw JSON: $json');
+
+    final id = json['id']?.toString() ?? '';
+    final name = json['username']?.toString() ?? json['name']?.toString() ?? '';
+    final description = json['description']?.toString() ?? '';
+    final status = json['status']?.toString() ?? 'unknown';
+
+    print('🔍 [Producer.fromJson] Campos parseados:');
+    print('  - ID: "$id"');
+    print('  - Name: "$name"');
+    print('  - Description: "$description"');
+    print('  - Status: "$status"');
+
     return Producer(
-      id: json['id'] ?? '',
-      name: json['name'] ?? '',
-      description: json['description'] ?? '',
-      status: json['status'] ?? '',
+      id: id,
+      name: name,
+      description: description,
+      status: status,
       createdAt:
           DateTime.parse(json['createdAt'] ?? DateTime.now().toIso8601String()),
-      brokerId: json['brokerId'],
-      strategyId: json['strategyId'],
+      brokerId: json['brokerId']?.toString(),
+      strategyId: json['strategyId']?.toString(),
       messageCount: json['messageCount'] ?? 0,
     );
   }

@@ -203,14 +203,42 @@ class ApiService {
 
       if (response.statusCode == 201) {
         final data = jsonDecode(response.body);
+
+        // Log da resposta completa para debug
+        developer.log(
+          'Producer criado com sucesso. Resposta completa: ${jsonEncode(data)}',
+          name: 'ApiService',
+        );
+
         return Producer.fromJson(data['data']);
       } else {
         final error = jsonDecode(response.body);
+
+        // Tratamento específico para erro de conflito
+        if (response.statusCode == 409) {
+          throw Exception(
+              error['message'] ?? 'Produtor já existe com esse nome');
+        }
+
         throw Exception(error['message'] ?? 'Erro ao criar produtor');
       }
     } catch (e) {
       _logHttpError(method, url, e.toString());
-      throw Exception('Erro de conexão: $e');
+
+      // Melhorar mensagem para erros de API
+      if (e.toString().contains('Producer with username')) {
+        await _errorLogger.logError(
+            'Tentativa de criar produtor com username já existente: $name',
+            action: 'API Request',
+            additionalData: {
+              'method': method,
+              'url': url,
+              'username': name,
+              'error_type': 'conflict',
+            });
+      }
+
+      throw Exception('API Error: $e');
     }
   }
 

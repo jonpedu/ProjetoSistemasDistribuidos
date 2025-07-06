@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import '../models/producer.dart';
 import '../providers/app_provider.dart';
 import '../services/api_service.dart';
 
@@ -78,6 +79,102 @@ class _InterSCityIntegrationScreenState
     }
   }
 
+  /// Gera um nome de produtor válido (8-32 caracteres alfanuméricos)
+  String _generateValidProducerName(int attempt) {
+    final timestamp = DateTime.now().millisecondsSinceEpoch;
+    final basePrefix = 'testinter';
+
+    // Usar diferentes estratégias baseadas na tentativa
+    String suffix;
+    switch (attempt) {
+      case 0:
+        // Primeira tentativa: usar últimos 6 dígitos do timestamp
+        suffix = timestamp.toString().substring(7);
+        break;
+      case 1:
+        // Segunda tentativa: usar últimos 4 dígitos + random
+        final random = (timestamp % 100).toString().padLeft(2, '0');
+        suffix = '${timestamp.toString().substring(9)}$random';
+        break;
+      case 2:
+        // Terceira tentativa: usar hash mais complexo
+        final hash = timestamp.hashCode.abs().toString();
+        suffix = hash.substring(0, 6.clamp(0, hash.length));
+        break;
+      default:
+        // Fallback
+        suffix = (timestamp % 1000000).toString();
+    }
+
+    String proposedName = basePrefix + suffix;
+
+    // Garantir que está dentro do limite de 32 caracteres
+    if (proposedName.length > 32) {
+      proposedName = proposedName.substring(0, 32);
+    }
+
+    // Garantir que tem pelo menos 8 caracteres
+    if (proposedName.length < 8) {
+      proposedName = proposedName.padRight(8, '0');
+    }
+
+    // Garantir que é alfanumérico (remover caracteres especiais)
+    proposedName = proposedName.replaceAll(RegExp(r'[^a-zA-Z0-9]'), '');
+
+    // Se ficou muito curto após limpeza, completar com números
+    if (proposedName.length < 8) {
+      proposedName = proposedName.padRight(8, '0');
+    }
+
+    // Log para debug (desabilitado para não sobrecarregar o console)
+    // developer.log(
+    //   'Generated producer name: "$proposedName" (length: ${proposedName.length}, attempt: $attempt)',
+    //   name: 'InterSCityIntegration',
+    // );
+
+    return proposedName;
+  }
+
+  Future<Producer> _createUniqueProducer(String token) async {
+    const maxAttempts = 3;
+    int attempt = 0;
+
+    while (attempt < maxAttempts) {
+      try {
+        final testProducerName = _generateValidProducerName(attempt);
+
+        final producer = await _apiService.createProducer(
+          token,
+          testProducerName,
+          'Produtor de Teste InterSCity - ${DateTime.now().toIso8601String()} (Tentativa ${attempt + 1})',
+        );
+
+        return producer;
+      } catch (e) {
+        attempt++;
+
+        if (attempt >= maxAttempts) {
+          // Se todas as tentativas falharam, relançar o erro
+          rethrow;
+        }
+
+        // Se foi erro de conflito ou validação, tentar novamente
+        if (e.toString().contains('Producer with username') ||
+            e.toString().contains('Validation failed')) {
+          // Esperar um pouco antes de tentar novamente
+          await Future.delayed(Duration(milliseconds: 200 * attempt));
+          continue;
+        } else {
+          // Se não foi erro de conflito/validação, relançar imediatamente
+          rethrow;
+        }
+      }
+    }
+
+    // Nunca deveria chegar aqui, mas garantir que sempre retorna algo
+    throw Exception('Falha ao criar produtor após $maxAttempts tentativas');
+  }
+
   Future<void> _testInterSCityIntegration() async {
     try {
       final provider = context.read<AppProvider>();
@@ -85,12 +182,17 @@ class _InterSCityIntegrationScreenState
         throw Exception('Token do projeto não encontrado');
       }
 
-      // Criar produtor de teste para InterSCity
-      final producer = await _apiService.createProducer(
-        provider.currentProject!.token!,
-        'testinterscityproducer',
-        'Produtor de Teste InterSCity',
-      );
+      // Criar produtor único de teste para InterSCity
+      final producer =
+          await _createUniqueProducer(provider.currentProject!.token!);
+
+      // Debug: verificar dados do producer
+      print('🔍 [InterSCity Test] Producer criado:');
+      print('  - ID: "${producer.id}"');
+      print('  - Name: "${producer.name}"');
+      print('  - Description: "${producer.description}"');
+      print('  - Status: "${producer.status}"');
+      print('  - CreatedAt: "${producer.createdAt}"');
 
       // Dados de teste no formato InterSCity
       final testData = {
@@ -115,17 +217,34 @@ class _InterSCityIntegrationScreenState
           'timestamp': DateTime.now(),
           'type': 'success',
           'message': 'Teste de integração realizado com sucesso',
-          'details': 'Dados enviados para InterSCity via middleware',
+          'details': 'Dados enviados para InterSCity via middleware\n'
+              'Producer ID: ${producer.id}\n'
+              'Producer Name: ${producer.name.isNotEmpty ? producer.name : "N/A"}\n'
+              'Status: ${producer.status}\n'
+              'Description: ${producer.description}',
         });
       });
 
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('✅ Teste de integração realizado com sucesso!'),
+        SnackBar(
+          content: Text(
+              '✅ Teste realizado com sucesso!\nProducer: ${producer.name.isNotEmpty ? producer.name : producer.id}'),
           backgroundColor: Colors.green,
+          duration: const Duration(seconds: 4),
+          action: SnackBarAction(
+            label: 'Ver Logs',
+            onPressed: () {
+              // Rolar para o primeiro log
+              if (_integrationLogs.isNotEmpty) {
+                // Focar no primeiro log
+              }
+            },
+          ),
         ),
       );
     } catch (e) {
+      print('🚨 [InterSCity Test] Erro: $e');
+
       // Adicionar log de erro
       setState(() {
         _integrationLogs.insert(0, {
@@ -138,10 +257,126 @@ class _InterSCityIntegrationScreenState
 
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('❌ Erro no teste: $e'),
+          content: Text('❌ Erro no teste: ${e.toString()}'),
           backgroundColor: Colors.red,
+          duration: const Duration(seconds: 5),
+          action: SnackBarAction(
+            label: 'Tentar Novamente',
+            onPressed: () => _testInterSCityIntegration(),
+          ),
         ),
       );
+    }
+  }
+
+  Future<void> _showDeleteProducerDialog() async {
+    final result = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Limpar Produtores de Teste'),
+        content: const Text(
+          'Esta ação irá remover todos os produtores de teste criados. '
+          'Isso pode ajudar a resolver problemas de conflito de nomes.\n\n'
+          'Deseja continuar?',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancelar'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Limpar'),
+          ),
+        ],
+      ),
+    );
+
+    if (result == true) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content:
+              Text('⚠️ Funcionalidade de limpeza não implementada no backend'),
+          backgroundColor: Colors.orange,
+        ),
+      );
+    }
+  }
+
+  void _showHelpDialog() {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Ajuda - Integração InterSCity'),
+        content: SingleChildScrollView(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Text(
+                'Como funciona a integração:',
+                style: TextStyle(fontWeight: FontWeight.bold),
+              ),
+              const SizedBox(height: 8),
+              const Text(
+                '1. O app Flutter envia dados via API REST\n'
+                '2. O Middleware Service processa e roteia\n'
+                '3. O InterSCity Adapter traduz e envia\n'
+                '4. A plataforma InterSCity recebe os dados',
+              ),
+              const SizedBox(height: 16),
+              const Text(
+                'Problemas comuns:',
+                style: TextStyle(fontWeight: FontWeight.bold),
+              ),
+              const SizedBox(height: 8),
+              const Text(
+                '• Erro "Producer already registered": O sistema agora gera nomes únicos automaticamente\n'
+                '• Erro "Validation failed": Nomes devem ter 8-32 caracteres alfanuméricos\n'
+                '• Conexão recusada: Verifique se todos os serviços estão rodando\n'
+                '• Token inválido: Registre um novo projeto',
+              ),
+              const SizedBox(height: 16),
+              const Text(
+                'Regras de validação:',
+                style: TextStyle(fontWeight: FontWeight.bold),
+              ),
+              const SizedBox(height: 8),
+              const Text(
+                '• Username: 8-32 caracteres alfanuméricos\n'
+                '• Não são permitidos caracteres especiais\n'
+                '• Sistema gera nomes automaticamente (ex: testinter8163223)',
+              ),
+              const SizedBox(height: 16),
+              const Text(
+                'Dicas:',
+                style: TextStyle(fontWeight: FontWeight.bold),
+              ),
+              const SizedBox(height: 8),
+              const Text(
+                '• Use o botão laranja para limpar produtores antigos\n'
+                '• Cada teste cria um produtor único e válido\n'
+                '• Verifique os logs para detalhes dos testes\n'
+                '• O sistema tenta até 3 vezes em caso de erro',
+              ),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Entendi'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _testNameGeneration() {
+    for (int i = 0; i < 5; i++) {
+      final name = _generateValidProducerName(i);
+      print(
+          'Teste $i: "$name" (${name.length} caracteres, alfanumérico: ${RegExp(r'^[a-zA-Z0-9]+$').hasMatch(name)})');
     }
   }
 
@@ -154,8 +389,14 @@ class _InterSCityIntegrationScreenState
         foregroundColor: Colors.white,
         actions: [
           IconButton(
+            icon: const Icon(Icons.help_outline),
+            onPressed: _showHelpDialog,
+            tooltip: 'Ajuda',
+          ),
+          IconButton(
             icon: const Icon(Icons.refresh),
             onPressed: _loadIntegrationInfo,
+            tooltip: 'Atualizar',
           ),
         ],
       ),
@@ -190,12 +431,19 @@ class _InterSCityIntegrationScreenState
                     ),
                   ],
                 ),
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: _testInterSCityIntegration,
-        icon: const Icon(Icons.play_arrow),
-        label: const Text('Testar Integração'),
-        backgroundColor: Colors.green.shade600,
-        foregroundColor: Colors.white,
+      floatingActionButton: Column(
+        mainAxisAlignment: MainAxisAlignment.end,
+        children: [
+          const SizedBox(height: 12),
+          FloatingActionButton.extended(
+            heroTag: "test_integration",
+            onPressed: _testInterSCityIntegration,
+            icon: const Icon(Icons.play_arrow),
+            label: const Text('Testar Integração'),
+            backgroundColor: Colors.green.shade600,
+            foregroundColor: Colors.white,
+          ),
+        ],
       ),
     );
   }
@@ -209,7 +457,7 @@ class _InterSCityIntegrationScreenState
         children: [
           Row(
             children: [
-              Icon(Icons.cloud_sync, color: Colors.green.shade700, size: 32),
+              Icon(Icons.cloud_sync, color: Colors.green.shade700, size: 28),
               const SizedBox(width: 12),
               Expanded(
                 child: Column(

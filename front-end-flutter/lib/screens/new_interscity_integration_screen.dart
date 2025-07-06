@@ -252,7 +252,7 @@ class _NewInterSCityIntegrationScreenState
         children: [
           Row(
             children: [
-              Icon(Icons.add_circle, color: Colors.teal.shade700, size: 32),
+              Icon(Icons.add_circle, color: Colors.teal.shade700, size: 28),
               const SizedBox(width: 12),
               Expanded(
                 child: Column(
@@ -444,7 +444,7 @@ class _NewInterSCityIntegrationScreenState
               style: ElevatedButton.styleFrom(
                 backgroundColor: Colors.teal.shade600,
                 foregroundColor: Colors.white,
-                padding: const EdgeInsets.symmetric(vertical: 16),
+                padding: const EdgeInsets.symmetric(vertical: 12),
               ),
             ),
           ),

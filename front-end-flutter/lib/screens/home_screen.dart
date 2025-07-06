@@ -90,7 +90,7 @@ class _HomeScreenState extends State<HomeScreen> {
           children: [
             Icon(
               Icons.cloud_queue,
-              size: 80,
+              size: 64,
               color: Theme.of(context).primaryColor,
             ),
             const SizedBox(height: 24),
@@ -121,7 +121,7 @@ class _HomeScreenState extends State<HomeScreen> {
               label: const Text('Registrar Novo Projeto'),
               style: ElevatedButton.styleFrom(
                 padding:
-                    const EdgeInsets.symmetric(horizontal: 32, vertical: 16),
+                    const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
               ),
             ),
           ],
@@ -287,10 +287,10 @@ class _HomeScreenState extends State<HomeScreen> {
             children: [
               Icon(
                 icon,
-                size: 48,
+                size: 36,
                 color: Theme.of(context).primaryColor,
               ),
-              const SizedBox(height: 16),
+              const SizedBox(height: 12),
               Text(
                 title,
                 style: Theme.of(context).textTheme.titleMedium?.copyWith(
@@ -298,7 +298,7 @@ class _HomeScreenState extends State<HomeScreen> {
                     ),
                 textAlign: TextAlign.center,
               ),
-              const SizedBox(height: 8),
+              const SizedBox(height: 6),
               Text(
                 subtitle,
                 style: Theme.of(context).textTheme.bodySmall?.copyWith(

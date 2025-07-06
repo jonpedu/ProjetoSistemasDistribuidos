@@ -139,7 +139,7 @@ class _ProducerManagementScreenState extends State<ProducerManagementScreen> {
                   icon: const Icon(Icons.add),
                   label: const Text('Criar Produtor'),
                   style: ElevatedButton.styleFrom(
-                    padding: const EdgeInsets.symmetric(vertical: 16),
+                    padding: const EdgeInsets.symmetric(vertical: 12),
                   ),
                 ),
               ),
