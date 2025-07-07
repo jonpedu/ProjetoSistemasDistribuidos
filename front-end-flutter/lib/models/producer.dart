@@ -26,24 +26,42 @@ class Producer {
     final id = json['id']?.toString() ?? '';
     final name = json['username']?.toString() ?? json['name']?.toString() ?? '';
     final description = json['description']?.toString() ?? '';
-    final status = json['status']?.toString() ?? 'unknown';
+    final status = json['status']?.toString() ?? 'active';
 
-    print('🔍 [Producer.fromJson] Campos parseados:');
+    // Tentar parsear a data em diferentes formatos
+    DateTime createdAt;
+    try {
+      final createdAtStr = json['createdAt']?.toString() ??
+          json['created_at']?.toString() ??
+          json['timestamp']?.toString();
+
+      if (createdAtStr != null) {
+        createdAt = DateTime.parse(createdAtStr);
+      } else {
+        createdAt = DateTime.now();
+      }
+    } catch (e) {
+      print('⚠️ [Producer.fromJson] Erro ao parsear timestamp: $e');
+      createdAt = DateTime.now();
+    }
+
+    print('🔍 [Producer.fromJson] Dados finais:');
     print('  - ID: "$id"');
     print('  - Name: "$name"');
     print('  - Description: "$description"');
     print('  - Status: "$status"');
+    print('  - CreatedAt: "$createdAt"');
 
     return Producer(
       id: id,
       name: name,
       description: description,
       status: status,
-      createdAt:
-          DateTime.parse(json['createdAt'] ?? DateTime.now().toIso8601String()),
-      brokerId: json['brokerId']?.toString(),
-      strategyId: json['strategyId']?.toString(),
-      messageCount: json['messageCount'] ?? 0,
+      createdAt: createdAt,
+      brokerId: json['brokerId']?.toString() ?? json['broker_id']?.toString(),
+      strategyId:
+          json['strategyId']?.toString() ?? json['strategy_id']?.toString(),
+      messageCount: json['messageCount'] ?? json['message_count'] ?? 0,
     );
   }
 

@@ -4,7 +4,6 @@ import 'package:provider/provider.dart';
 import '../providers/app_provider.dart';
 import 'error_logs_screen.dart';
 import 'interscity_integration_screen.dart';
-import 'new_interscity_integration_screen.dart';
 import 'project_registration_screen.dart';
 import 'traffic_sensor_dashboard.dart';
 
@@ -183,20 +182,20 @@ class _HomeScreenState extends State<HomeScreen> {
                           context,
                           MaterialPageRoute(
                             builder: (context) =>
-                                const NewInterSCityIntegrationScreen(),
+                                const InterSCityIntegrationScreen(),
                           ),
                         );
                       },
                     ),
                     _buildMenuCard(
-                      icon: Icons.bug_report,
-                      title: 'Logs de Erro',
-                      subtitle: 'Visualizar e gerenciar erros do app',
+                      icon: Icons.list_alt,
+                      title: 'Logs',
+                      subtitle: 'Visualizar logs do sistema e requisições',
                       onTap: () {
                         Navigator.push(
                           context,
                           MaterialPageRoute(
-                            builder: (context) => const ErrorLogsScreen(),
+                            builder: (context) => const LogsScreen(),
                           ),
                         );
                       },

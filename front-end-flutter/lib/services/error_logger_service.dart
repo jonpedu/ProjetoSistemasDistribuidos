@@ -1,20 +1,25 @@
 import 'dart:convert';
 import 'dart:developer' as developer;
 
+import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-class ErrorLogEntry {
+enum LogType { error, httpRequest, httpResponse, info, warning }
+
+class LogEntry {
   final DateTime timestamp;
-  final String error;
-  final String? stackTrace;
+  final LogType type;
+  final String title;
+  final String message;
   final String? screen;
   final String? action;
   final Map<String, dynamic>? additionalData;
 
-  ErrorLogEntry({
+  LogEntry({
     required this.timestamp,
-    required this.error,
-    this.stackTrace,
+    required this.type,
+    required this.title,
+    required this.message,
     this.screen,
     this.action,
     this.additionalData,
@@ -23,19 +28,24 @@ class ErrorLogEntry {
   Map<String, dynamic> toJson() {
     return {
       'timestamp': timestamp.toIso8601String(),
-      'error': error,
-      'stackTrace': stackTrace,
+      'type': type.name,
+      'title': title,
+      'message': message,
       'screen': screen,
       'action': action,
       'additionalData': additionalData,
     };
   }
 
-  factory ErrorLogEntry.fromJson(Map<String, dynamic> json) {
-    return ErrorLogEntry(
+  factory LogEntry.fromJson(Map<String, dynamic> json) {
+    return LogEntry(
       timestamp: DateTime.parse(json['timestamp']),
-      error: json['error'],
-      stackTrace: json['stackTrace'],
+      type: LogType.values.firstWhere(
+        (e) => e.name == json['type'],
+        orElse: () => LogType.info,
+      ),
+      title: json['title'],
+      message: json['message'],
       screen: json['screen'],
       action: json['action'],
       additionalData: json['additionalData'] != null
@@ -43,18 +53,184 @@ class ErrorLogEntry {
           : null,
     );
   }
+
+  String get typeDisplayName {
+    switch (type) {
+      case LogType.error:
+        return 'Erro';
+      case LogType.httpRequest:
+        return 'Requisição HTTP';
+      case LogType.httpResponse:
+        return 'Resposta HTTP';
+      case LogType.info:
+        return 'Informação';
+      case LogType.warning:
+        return 'Aviso';
+    }
+  }
+
+  Color get typeColor {
+    switch (type) {
+      case LogType.error:
+        return Colors.red;
+      case LogType.httpRequest:
+        return Colors.blue;
+      case LogType.httpResponse:
+        return Colors.green;
+      case LogType.info:
+        return Colors.grey;
+      case LogType.warning:
+        return Colors.orange;
+    }
+  }
+
+  IconData get typeIcon {
+    switch (type) {
+      case LogType.error:
+        return Icons.error;
+      case LogType.httpRequest:
+        return Icons.arrow_upward;
+      case LogType.httpResponse:
+        return Icons.arrow_downward;
+      case LogType.info:
+        return Icons.info;
+      case LogType.warning:
+        return Icons.warning;
+    }
+  }
 }
 
-class ErrorLoggerService {
-  static const String _storageKey = 'app_error_logs';
-  static const int _maxLogEntries = 100; // Limite de entradas no log
+class LoggerService {
+  static const String _storageKey = 'app_logs';
+  static const int _maxLogEntries = 200; // Aumentado para incluir HTTP logs
 
   // Singleton pattern
-  static final ErrorLoggerService _instance = ErrorLoggerService._internal();
-  factory ErrorLoggerService() => _instance;
-  ErrorLoggerService._internal();
+  static final LoggerService _instance = LoggerService._internal();
+  factory LoggerService() => _instance;
+  LoggerService._internal();
 
-  List<ErrorLogEntry> _logs = [];
+  List<LogEntry> _logs = [];
+
+  // Logar requisição HTTP
+  Future<void> logHttpRequest(
+    String method,
+    String url, {
+    Map<String, String>? headers,
+    String? body,
+    String? screen,
+  }) async {
+    final entry = LogEntry(
+      timestamp: DateTime.now(),
+      type: LogType.httpRequest,
+      title: '$method Request',
+      message: url,
+      screen: screen,
+      action: 'HTTP Request',
+      additionalData: {
+        'method': method,
+        'url': url,
+        'headers': headers,
+        'body': body,
+      },
+    );
+
+    _addLogEntry(entry);
+
+    // Log no console para debug
+    developer.log(
+      '📤 [HTTP REQUEST] $method $url',
+      name: 'LoggerService',
+    );
+  }
+
+  // Logar resposta HTTP
+  Future<void> logHttpResponse(
+    String method,
+    String url,
+    int statusCode,
+    String responseBody, {
+    String? screen,
+  }) async {
+    final entry = LogEntry(
+      timestamp: DateTime.now(),
+      type: LogType.httpResponse,
+      title: '$method Response ($statusCode)',
+      message: url,
+      screen: screen,
+      action: 'HTTP Response',
+      additionalData: {
+        'method': method,
+        'url': url,
+        'statusCode': statusCode,
+        'responseBody': responseBody,
+        'isSuccess': statusCode >= 200 && statusCode < 300,
+      },
+    );
+
+    _addLogEntry(entry);
+
+    // Log no console para debug
+    developer.log(
+      '📥 [HTTP RESPONSE] $method $url - $statusCode',
+      name: 'LoggerService',
+    );
+  }
+
+  // Logar informação geral
+  Future<void> logInfo(
+    String title,
+    String message, {
+    String? screen,
+    String? action,
+    Map<String, dynamic>? additionalData,
+  }) async {
+    final entry = LogEntry(
+      timestamp: DateTime.now(),
+      type: LogType.info,
+      title: title,
+      message: message,
+      screen: screen,
+      action: action,
+      additionalData: additionalData,
+    );
+
+    _addLogEntry(entry);
+  }
+
+  // Logar aviso
+  Future<void> logWarning(
+    String title,
+    String message, {
+    String? screen,
+    String? action,
+    Map<String, dynamic>? additionalData,
+  }) async {
+    final entry = LogEntry(
+      timestamp: DateTime.now(),
+      type: LogType.warning,
+      title: title,
+      message: message,
+      screen: screen,
+      action: action,
+      additionalData: additionalData,
+    );
+
+    _addLogEntry(entry);
+  }
+
+  // Método auxiliar para adicionar entrada e salvar
+  Future<void> _addLogEntry(LogEntry entry) async {
+    // Adicionar ao log em memória
+    _logs.insert(0, entry); // Inserir no início da lista
+
+    // Limitar o número de entradas em memória
+    if (_logs.length > _maxLogEntries) {
+      _logs = _logs.take(_maxLogEntries).toList();
+    }
+
+    // Salvar no armazenamento local
+    await _saveLogs();
+  }
 
   // Logar erro com informações detalhadas
   Future<void> logError(
@@ -64,63 +240,55 @@ class ErrorLoggerService {
     String? action,
     Map<String, dynamic>? additionalData,
   }) async {
-    final entry = ErrorLogEntry(
+    final entry = LogEntry(
       timestamp: DateTime.now(),
-      error: error,
-      stackTrace: stackTrace,
+      type: LogType.error,
+      title: 'Erro',
+      message: error,
       screen: screen,
       action: action,
       additionalData: additionalData,
     );
 
-    // Adicionar ao log em memória
-    _logs.insert(0, entry); // Inserir no início da lista
-
-    // Limitar o número de entradas em memória
-    if (_logs.length > _maxLogEntries) {
-      _logs = _logs.take(_maxLogEntries).toList();
-    }
+    await _addLogEntry(entry);
 
     // Log no console para debug
     developer.log(
       '🚨 [APP ERROR] ====================================================',
-      name: 'ErrorLogger',
+      name: 'LoggerService',
     );
     developer.log(
       '📋 [APP ERROR] Timestamp: ${entry.timestamp.toIso8601String()}',
-      name: 'ErrorLogger',
+      name: 'LoggerService',
     );
     developer.log(
       '📋 [APP ERROR] Screen: ${entry.screen ?? 'N/A'}',
-      name: 'ErrorLogger',
+      name: 'LoggerService',
     );
     developer.log(
       '📋 [APP ERROR] Action: ${entry.action ?? 'N/A'}',
-      name: 'ErrorLogger',
+      name: 'LoggerService',
     );
     developer.log(
-      '❌ [APP ERROR] Error: ${entry.error}',
-      name: 'ErrorLogger',
+      '❌ [APP ERROR] Error: ${entry.message}',
+      name: 'LoggerService',
     );
-    if (entry.stackTrace != null) {
+    if (stackTrace != null) {
       developer.log(
-        '📋 [APP ERROR] Stack Trace: ${entry.stackTrace}',
-        name: 'ErrorLogger',
+        '📋 [APP ERROR] Stack Trace: $stackTrace',
+        name: 'LoggerService',
       );
     }
-    if (entry.additionalData != null) {
+    if (additionalData != null) {
       developer.log(
-        '📋 [APP ERROR] Additional Data: ${jsonEncode(entry.additionalData)}',
-        name: 'ErrorLogger',
+        '📋 [APP ERROR] Additional Data: ${jsonEncode(additionalData)}',
+        name: 'LoggerService',
       );
     }
     developer.log(
       '🚨 [APP ERROR] ====================================================',
-      name: 'ErrorLogger',
+      name: 'LoggerService',
     );
-
-    // Salvar no armazenamento local
-    await _saveLogs();
   }
 
   // Logar erro simples
@@ -167,12 +335,12 @@ class ErrorLoggerService {
   }
 
   // Obter todos os logs
-  List<ErrorLogEntry> getLogs() {
+  List<LogEntry> getLogs() {
     return List.unmodifiable(_logs);
   }
 
   // Obter logs filtrados por data
-  List<ErrorLogEntry> getLogsByDate(DateTime date) {
+  List<LogEntry> getLogsByDate(DateTime date) {
     return _logs.where((log) {
       return log.timestamp.year == date.year &&
           log.timestamp.month == date.month &&
@@ -181,12 +349,12 @@ class ErrorLoggerService {
   }
 
   // Obter logs filtrados por tela
-  List<ErrorLogEntry> getLogsByScreen(String screen) {
+  List<LogEntry> getLogsByScreen(String screen) {
     return _logs.where((log) => log.screen == screen).toList();
   }
 
   // Obter logs dos últimos N dias
-  List<ErrorLogEntry> getLogsFromLastDays(int days) {
+  List<LogEntry> getLogsFromLastDays(int days) {
     final cutoffDate = DateTime.now().subtract(Duration(days: days));
     return _logs.where((log) => log.timestamp.isAfter(cutoffDate)).toList();
   }
@@ -214,10 +382,7 @@ class ErrorLoggerService {
       buffer.writeln('Data/Hora: ${log.timestamp.toIso8601String()}');
       buffer.writeln('Tela: ${log.screen ?? 'N/A'}');
       buffer.writeln('Ação: ${log.action ?? 'N/A'}');
-      buffer.writeln('Erro: ${log.error}');
-      if (log.stackTrace != null) {
-        buffer.writeln('Stack Trace: ${log.stackTrace}');
-      }
+      buffer.writeln('Erro: ${log.message}');
       if (log.additionalData != null) {
         buffer.writeln('Dados Adicionais: ${jsonEncode(log.additionalData)}');
       }
@@ -235,7 +400,7 @@ class ErrorLoggerService {
 
       if (logsJson != null) {
         final List<dynamic> logsList = jsonDecode(logsJson);
-        _logs = logsList.map((json) => ErrorLogEntry.fromJson(json)).toList();
+        _logs = logsList.map((json) => LogEntry.fromJson(json)).toList();
       }
     } catch (e) {
       developer.log(
@@ -285,7 +450,7 @@ class ErrorLoggerService {
       errorsByDay[day] = (errorsByDay[day] ?? 0) + 1;
 
       // Contar mensagens de erro
-      errorMessages[log.error] = (errorMessages[log.error] ?? 0) + 1;
+      errorMessages[log.message] = (errorMessages[log.message] ?? 0) + 1;
     }
 
     // Ordenar erros mais comuns
@@ -301,4 +466,36 @@ class ErrorLoggerService {
           _logs.isNotEmpty ? _logs.first.timestamp.toIso8601String() : null,
     };
   }
+
+  // Métodos de filtro por tipo
+  List<LogEntry> getLogsByType(LogType type) {
+    return _logs.where((log) => log.type == type).toList();
+  }
+
+  List<LogEntry> getHttpLogs() {
+    return _logs
+        .where((log) =>
+            log.type == LogType.httpRequest || log.type == LogType.httpResponse)
+        .toList();
+  }
+
+  List<LogEntry> getInterSCityLogs() {
+    return _logs
+        .where((log) =>
+            (log.type == LogType.httpRequest ||
+                log.type == LogType.httpResponse) &&
+            (log.message.contains('interscity') ||
+                log.message.contains('localhost:8083') ||
+                log.additionalData?['url']?.toString().contains('8083') ==
+                    true))
+        .toList();
+  }
+
+  List<LogEntry> getErrorLogs() {
+    return _logs.where((log) => log.type == LogType.error).toList();
+  }
 }
+
+// Alias para compatibilidade com código existente
+typedef ErrorLoggerService = LoggerService;
+typedef ErrorLogEntry = LogEntry;

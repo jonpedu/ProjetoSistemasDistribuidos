@@ -9,6 +9,8 @@ import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
+import java.time.LocalDateTime;
+
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
@@ -25,6 +27,9 @@ public class ProducerDto {
     @Pattern(regexp = "^[a-zA-Z0-9./#$|-]+$", message = "Password can only contain alphanumeric characters and ./#$|-")
     private String password;
 
+    private String description; // Descrição do produtor
+    private String status; // Status do produtor
+
     @NotBlank(message = "Broker name cannot be empty")
     private String broker; // Ex: "rabbitmq", "kafka"
 
@@ -37,18 +42,25 @@ public class ProducerDto {
     private String routingKey;
     private String headers; // JSON String
 
+    private LocalDateTime createdAt;
+    private LocalDateTime updatedAt;
+
     // Métodos de conversão
     public Producer toModel() {
         Producer producer = new Producer();
         producer.setId(this.id);
         producer.setUsername(this.username);
         producer.setPassword(this.password);
+        producer.setDescription(this.description);
+        producer.setStatus(this.status);
         producer.setBroker(this.broker);
         producer.setStrategy(this.strategy);
         producer.setExchange(this.exchange);
         producer.setQueue(this.queue);
         producer.setRoutingKey(this.routingKey);
         producer.setHeaders(this.headers);
+        producer.setCreatedAt(this.createdAt);
+        producer.setUpdatedAt(this.updatedAt);
         // projectId será adicionado no serviço, com base no token
         return producer;
     }
@@ -58,12 +70,16 @@ public class ProducerDto {
         dto.setId(producer.getId());
         dto.setUsername(producer.getUsername());
         dto.setPassword(null); // Nunca retorne a senha
+        dto.setDescription(producer.getDescription());
+        dto.setStatus(producer.getStatus());
         dto.setBroker(producer.getBroker());
         dto.setStrategy(producer.getStrategy());
         dto.setExchange(producer.getExchange());
         dto.setQueue(producer.getQueue());
         dto.setRoutingKey(producer.getRoutingKey());
         dto.setHeaders(producer.getHeaders());
+        dto.setCreatedAt(producer.getCreatedAt());
+        dto.setUpdatedAt(producer.getUpdatedAt());
         return dto;
     }
 }

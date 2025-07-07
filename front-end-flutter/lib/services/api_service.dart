@@ -17,7 +17,7 @@ class ApiService {
   static const String interscityUrl =
       'http://localhost:8083'; // InterSCity Adapter Service
 
-  final ErrorLoggerService _errorLogger = ErrorLoggerService();
+  final LoggerService _logger = LoggerService();
 
   // Headers padrão
   Map<String, String> _getHeaders(String? token) {
@@ -65,6 +65,15 @@ class ApiService {
       '🌐 [FLUTTER HTTP] ====================================================',
       name: 'ApiService',
     );
+
+    // Log no novo sistema
+    _logger.logHttpRequest(
+      method,
+      url,
+      headers: headers,
+      body: body,
+      screen: 'ApiService',
+    );
   }
 
   // Método para logar respostas HTTP
@@ -98,6 +107,15 @@ class ApiService {
       '🌐 [FLUTTER HTTP] ====================================================',
       name: 'ApiService',
     );
+
+    // Log no novo sistema
+    _logger.logHttpResponse(
+      method,
+      url,
+      statusCode,
+      body,
+      screen: 'ApiService',
+    );
   }
 
   // Método para logar erros HTTP
@@ -128,7 +146,7 @@ class ApiService {
     );
 
     // Logar erro no sistema de logging
-    _errorLogger.logApiError(method, url, error);
+    _logger.logApiError(method, url, error);
   }
 
   // Métodos para gerenciar projetos
@@ -162,7 +180,7 @@ class ApiService {
       }
     } catch (e) {
       _logHttpError(method, url, e.toString());
-      _errorLogger.logError(
+      _logger.logError(
         'Erro de conexão: $e',
         action: 'API Request',
         additionalData: {
@@ -183,12 +201,18 @@ class ApiService {
     final body = jsonEncode({
       'username': name,
       'password': 'password123',
+      'description': description,
       'broker': 'rabbitmq',
       'strategy': 'direct',
       'exchange': 'default.exchange',
       'queue': 'default.queue',
       'routingKey': 'default.key',
     });
+
+    // Log dos parâmetros enviados
+    print('🔍 [createProducer] Enviando:');
+    print('  - name: "$name"');
+    print('  - description: "$description"');
 
     _logHttpRequest(method, url, headers, body);
 
@@ -204,9 +228,13 @@ class ApiService {
       if (response.statusCode == 201) {
         final data = jsonDecode(response.body);
 
-        // Log da resposta completa para debug
+        // Log da resposta para debug
+        print('🔍 [createProducer] Resposta recebida:');
+        print('  - Status: ${response.statusCode}');
+        print('  - Data: ${jsonEncode(data)}');
+
         developer.log(
-          'Producer criado com sucesso. Resposta completa: ${jsonEncode(data)}',
+          'Producer criado com sucesso. Resposta: ${jsonEncode(data)}',
           name: 'ApiService',
         );
 
@@ -227,7 +255,7 @@ class ApiService {
 
       // Melhorar mensagem para erros de API
       if (e.toString().contains('Producer with username')) {
-        await _errorLogger.logError(
+        await _logger.logError(
             'Tentativa de criar produtor com username já existente: $name',
             action: 'API Request',
             additionalData: {

@@ -3,21 +3,22 @@ import 'package:flutter/services.dart';
 
 import '../services/error_logger_service.dart';
 
-class ErrorLogsScreen extends StatefulWidget {
-  const ErrorLogsScreen({super.key});
+class LogsScreen extends StatefulWidget {
+  const LogsScreen({super.key});
 
   @override
-  State<ErrorLogsScreen> createState() => _ErrorLogsScreenState();
+  State<LogsScreen> createState() => _LogsScreenState();
 }
 
-class _ErrorLogsScreenState extends State<ErrorLogsScreen> {
-  final ErrorLoggerService _errorLogger = ErrorLoggerService();
-  List<ErrorLogEntry> _logs = [];
+class _LogsScreenState extends State<LogsScreen> {
+  final LoggerService _logger = LoggerService();
+  List<LogEntry> _logs = [];
   Map<String, dynamic> _statistics = {};
   bool _isLoading = true;
   String? _error;
   String _filterType = 'all'; // all, today, week, month
   String _selectedScreen = 'all';
+  LogType? _selectedLogType; // null = all types
 
   @override
   void initState() {
@@ -32,7 +33,7 @@ class _ErrorLogsScreenState extends State<ErrorLogsScreen> {
         _error = null;
       });
 
-      await _errorLogger.loadLogs();
+      await _logger.loadLogs();
       _applyFilters();
       _loadStatistics();
 
@@ -48,19 +49,34 @@ class _ErrorLogsScreenState extends State<ErrorLogsScreen> {
   }
 
   void _applyFilters() {
-    List<ErrorLogEntry> filteredLogs = _errorLogger.getLogs();
+    List<LogEntry> filteredLogs = _logger.getLogs();
 
     // Filtrar por período
     switch (_filterType) {
       case 'today':
-        filteredLogs = _errorLogger.getLogsByDate(DateTime.now());
+        filteredLogs = _logger.getLogsByDate(DateTime.now());
         break;
       case 'week':
-        filteredLogs = _errorLogger.getLogsFromLastDays(7);
+        filteredLogs = _logger.getLogsFromLastDays(7);
         break;
       case 'month':
-        filteredLogs = _errorLogger.getLogsFromLastDays(30);
+        filteredLogs = _logger.getLogsFromLastDays(30);
         break;
+      case 'interscity':
+        filteredLogs = _logger.getInterSCityLogs();
+        break;
+      case 'http':
+        filteredLogs = _logger.getHttpLogs();
+        break;
+      case 'errors':
+        filteredLogs = _logger.getErrorLogs();
+        break;
+    }
+
+    // Filtrar por tipo de log
+    if (_selectedLogType != null) {
+      filteredLogs =
+          filteredLogs.where((log) => log.type == _selectedLogType).toList();
     }
 
     // Filtrar por tela
@@ -76,7 +92,7 @@ class _ErrorLogsScreenState extends State<ErrorLogsScreen> {
 
   void _loadStatistics() {
     setState(() {
-      _statistics = _errorLogger.getLogStatistics();
+      _statistics = _logger.getLogStatistics();
     });
   }
 
@@ -86,7 +102,7 @@ class _ErrorLogsScreenState extends State<ErrorLogsScreen> {
       builder: (context) => AlertDialog(
         title: const Text('Limpar Logs'),
         content: const Text(
-          'Tem certeza que deseja limpar todos os logs de erro?\n\n'
+          'Tem certeza que deseja limpar todos os logs?\n\n'
           'Esta ação não pode ser desfeita.',
         ),
         actions: [
@@ -104,12 +120,12 @@ class _ErrorLogsScreenState extends State<ErrorLogsScreen> {
     );
 
     if (confirmed == true) {
-      await _errorLogger.clearLogs();
+      await _logger.clearLogs();
       _loadLogs();
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text('✅ Logs de erro limpos com sucesso!'),
+            content: Text('✅ Logs limpos com sucesso!'),
             backgroundColor: Colors.green,
           ),
         );
@@ -141,11 +157,11 @@ class _ErrorLogsScreenState extends State<ErrorLogsScreen> {
       String filename;
 
       if (exportType == 'json') {
-        exportData = _errorLogger.exportLogsAsJson();
-        filename = 'error_logs_${DateTime.now().millisecondsSinceEpoch}.json';
+        exportData = _logger.exportLogsAsJson();
+        filename = 'logs_${DateTime.now().millisecondsSinceEpoch}.json';
       } else {
-        exportData = _errorLogger.exportLogsAsText();
-        filename = 'error_logs_${DateTime.now().millisecondsSinceEpoch}.txt';
+        exportData = _logger.exportLogsAsText();
+        filename = 'logs_${DateTime.now().millisecondsSinceEpoch}.txt';
       }
 
       await Clipboard.setData(ClipboardData(text: exportData));
@@ -167,8 +183,8 @@ class _ErrorLogsScreenState extends State<ErrorLogsScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Logs de Erro'),
-        backgroundColor: Colors.red.shade700,
+        title: const Text('Logs'),
+        backgroundColor: Colors.blue.shade700,
         foregroundColor: Colors.white,
         actions: [
           IconButton(
@@ -201,9 +217,9 @@ class _ErrorLogsScreenState extends State<ErrorLogsScreen> {
                 value: 'clear',
                 child: Row(
                   children: [
-                    Icon(Icons.delete_forever, color: Colors.red),
+                    Icon(Icons.clear_all),
                     SizedBox(width: 8),
-                    Text('Limpar Todos', style: TextStyle(color: Colors.red)),
+                    Text('Limpar'),
                   ],
                 ),
               ),
@@ -246,82 +262,116 @@ class _ErrorLogsScreenState extends State<ErrorLogsScreen> {
   }
 
   Widget _buildStatistics() {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      color: Colors.red.shade50,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Icon(Icons.analytics, color: Colors.red.shade700, size: 24),
-              const SizedBox(width: 8),
-              Text(
-                'Estatísticas',
-                style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                      fontWeight: FontWeight.bold,
-                      color: Colors.red.shade800,
-                    ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 12),
-          Row(
-            children: [
-              _buildStatCard(
-                'Total de Erros',
-                _statistics['totalErrors']?.toString() ?? '0',
-                Icons.error,
-                Colors.red,
-              ),
-              const SizedBox(width: 12),
-              _buildStatCard(
-                'Último Erro',
-                _statistics['lastError'] != null
-                    ? _formatDate(DateTime.parse(_statistics['lastError']))
-                    : 'N/A',
-                Icons.schedule,
-                Colors.orange,
-              ),
-              const SizedBox(width: 12),
-              _buildStatCard(
-                'Erros Hoje',
-                _errorLogger.getLogsByDate(DateTime.now()).length.toString(),
-                Icons.today,
-                Colors.blue,
-              ),
-            ],
-          ),
-        ],
+    return Card(
+      margin: const EdgeInsets.all(16),
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Estatísticas dos Logs',
+              style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                    fontWeight: FontWeight.bold,
+                  ),
+            ),
+            const SizedBox(height: 16),
+            GridView.count(
+              crossAxisCount: 2,
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
+              childAspectRatio: 2.5,
+              crossAxisSpacing: 12,
+              mainAxisSpacing: 12,
+              children: [
+                _buildStatCard(
+                  'Total de Logs',
+                  _logger.getLogs().length.toString(),
+                  Icons.list,
+                  Colors.blue,
+                ),
+                _buildStatCard(
+                  'Logs Hoje',
+                  _logger.getLogsByDate(DateTime.now()).length.toString(),
+                  Icons.today,
+                  Colors.green,
+                ),
+                _buildStatCard(
+                  'Logs HTTP',
+                  _logger.getHttpLogs().length.toString(),
+                  Icons.http,
+                  Colors.purple,
+                ),
+                _buildStatCard(
+                  'Erros',
+                  _logger.getErrorLogs().length.toString(),
+                  Icons.error,
+                  Colors.red,
+                ),
+                _buildStatCard(
+                  'InterSCity',
+                  _logger.getInterSCityLogs().length.toString(),
+                  Icons.cloud,
+                  Colors.orange,
+                ),
+                _buildStatCard(
+                  'Última Semana',
+                  _logger.getLogsFromLastDays(7).length.toString(),
+                  Icons.calendar_view_week,
+                  Colors.teal,
+                ),
+              ],
+            ),
+          ],
+        ),
       ),
     );
   }
 
   Widget _buildStatCard(
-      String title, String value, IconData icon, Color color) {
-    return Expanded(
-      child: Card(
-        child: Padding(
-          padding: const EdgeInsets.all(12),
-          child: Column(
+    String title,
+    String value,
+    IconData icon,
+    Color color,
+  ) {
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: color.withOpacity(0.1),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: color.withOpacity(0.3)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
             children: [
-              Icon(icon, color: color, size: 20),
-              const SizedBox(height: 4),
-              Text(
-                value,
-                style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                      fontWeight: FontWeight.bold,
-                      color: color,
-                    ),
-              ),
-              Text(
-                title,
-                style: Theme.of(context).textTheme.bodySmall,
-                textAlign: TextAlign.center,
+              Icon(icon, color: color, size: 18),
+              const SizedBox(width: 6),
+              Expanded(
+                child: Text(
+                  title,
+                  style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w500,
+                    color: color.withOpacity(0.8),
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
               ),
             ],
           ),
-        ),
+          const SizedBox(height: 4),
+          Text(
+            value,
+            style: TextStyle(
+              fontSize: 18,
+              fontWeight: FontWeight.bold,
+              color: color,
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -343,6 +393,10 @@ class _ErrorLogsScreenState extends State<ErrorLogsScreen> {
                 DropdownMenuItem(value: 'today', child: Text('Hoje')),
                 DropdownMenuItem(value: 'week', child: Text('Última Semana')),
                 DropdownMenuItem(value: 'month', child: Text('Último Mês')),
+                DropdownMenuItem(
+                    value: 'interscity', child: Text('InterSCity')),
+                DropdownMenuItem(value: 'http', child: Text('HTTP')),
+                DropdownMenuItem(value: 'errors', child: Text('Erros')),
               ],
               onChanged: (value) {
                 setState(() {
@@ -381,7 +435,7 @@ class _ErrorLogsScreenState extends State<ErrorLogsScreen> {
   }
 
   List<String> _getUniqueScreens() {
-    final screens = _errorLogger
+    final screens = _logger
         .getLogs()
         .map((log) => log.screen)
         .where((screen) => screen != null)
@@ -398,17 +452,17 @@ class _ErrorLogsScreenState extends State<ErrorLogsScreen> {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(Icons.check_circle, size: 64, color: Colors.green.shade300),
+            Icon(Icons.info_outline, size: 64, color: Colors.blue.shade300),
             const SizedBox(height: 16),
             Text(
-              'Nenhum erro encontrado',
+              'Nenhum log encontrado',
               style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                    color: Colors.green.shade700,
+                    color: Colors.blue.shade700,
                   ),
             ),
             const SizedBox(height: 8),
             Text(
-              'O aplicativo está funcionando perfeitamente!',
+              'Ajuste os filtros para ver diferentes tipos de logs.',
               style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                     color: Colors.grey.shade600,
                   ),
@@ -427,11 +481,11 @@ class _ErrorLogsScreenState extends State<ErrorLogsScreen> {
           margin: const EdgeInsets.only(bottom: 12),
           child: ExpansionTile(
             leading: Icon(
-              Icons.error,
-              color: Colors.red.shade600,
+              log.typeIcon,
+              color: log.typeColor,
             ),
             title: Text(
-              log.error,
+              log.title,
               style: const TextStyle(fontWeight: FontWeight.bold),
               maxLines: 2,
               overflow: TextOverflow.ellipsis,
@@ -440,13 +494,52 @@ class _ErrorLogsScreenState extends State<ErrorLogsScreen> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  _formatDate(log.timestamp),
-                  style: TextStyle(color: Colors.grey.shade600),
+                  log.message,
+                  style: const TextStyle(fontSize: 13),
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                ),
+                const SizedBox(height: 4),
+                Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 6,
+                        vertical: 2,
+                      ),
+                      decoration: BoxDecoration(
+                        color: log.typeColor.withOpacity(0.1),
+                        borderRadius: BorderRadius.circular(4),
+                        border: Border.all(
+                          color: log.typeColor.withOpacity(0.3),
+                        ),
+                      ),
+                      child: Text(
+                        log.typeDisplayName,
+                        style: TextStyle(
+                          color: log.typeColor,
+                          fontSize: 10,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Text(
+                      _formatDate(log.timestamp),
+                      style: TextStyle(
+                        color: Colors.grey.shade600,
+                        fontSize: 12,
+                      ),
+                    ),
+                  ],
                 ),
                 if (log.screen != null)
                   Text(
                     'Tela: ${log.screen}',
-                    style: TextStyle(color: Colors.grey.shade600),
+                    style: TextStyle(
+                      color: Colors.grey.shade600,
+                      fontSize: 12,
+                    ),
                   ),
               ],
             ),
@@ -460,14 +553,10 @@ class _ErrorLogsScreenState extends State<ErrorLogsScreen> {
                       _buildInfoRow('Ação', log.action!),
                       const SizedBox(height: 8),
                     ],
-                    if (log.stackTrace != null) ...[
-                      _buildInfoRow('Stack Trace', log.stackTrace!),
-                      const SizedBox(height: 8),
-                    ],
                     if (log.additionalData != null) ...[
                       _buildInfoRow(
                         'Dados Adicionais',
-                        log.additionalData.toString(),
+                        _formatAdditionalData(log.additionalData!),
                       ),
                     ],
                   ],
@@ -511,5 +600,15 @@ class _ErrorLogsScreenState extends State<ErrorLogsScreen> {
   String _formatDate(DateTime date) {
     return '${date.day.toString().padLeft(2, '0')}/${date.month.toString().padLeft(2, '0')}/${date.year} '
         '${date.hour.toString().padLeft(2, '0')}:${date.minute.toString().padLeft(2, '0')}';
+  }
+
+  String _formatAdditionalData(Map<String, dynamic> data) {
+    if (data.isEmpty) return 'Nenhum dado adicional';
+
+    final buffer = StringBuffer();
+    data.forEach((key, value) {
+      buffer.writeln('$key: $value');
+    });
+    return buffer.toString().trim();
   }
 }
