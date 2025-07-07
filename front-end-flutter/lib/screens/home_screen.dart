@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import '../providers/app_provider.dart';
 import 'error_logs_screen.dart';
 import 'interscity_integration_screen.dart';
+import 'new_interscity_integration_screen.dart';
 import 'project_registration_screen.dart';
 import 'traffic_sensor_dashboard.dart';
 
@@ -174,15 +175,15 @@ class _HomeScreenState extends State<HomeScreen> {
                       },
                     ),
                     _buildMenuCard(
-                      icon: Icons.add_circle,
-                      title: 'Nova Integração',
-                      subtitle: 'Criar integração com InterSCity',
+                      icon: Icons.science,
+                      title: 'Laboratório de Testes',
+                      subtitle: 'Criar e testar serviços InterSCity',
                       onTap: () {
                         Navigator.push(
                           context,
                           MaterialPageRoute(
                             builder: (context) =>
-                                const InterSCityIntegrationScreen(),
+                                const NewInterSCityIntegrationScreen(),
                           ),
                         );
                       },

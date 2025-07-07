@@ -1,3 +1,6 @@
+import 'dart:convert';
+import 'dart:math';
+
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
@@ -18,86 +21,72 @@ class _NewInterSCityIntegrationScreenState
   final _formKey = GlobalKey<FormState>();
 
   // Controllers para os campos do formulário
-  final _sensorNameController = TextEditingController();
-  final _locationController = TextEditingController();
-  final _latitudeController = TextEditingController();
-  final _longitudeController = TextEditingController();
+  final _serviceNameController = TextEditingController();
   final _descriptionController = TextEditingController();
+  final _dataKeysController = TextEditingController();
+  final _intervalController = TextEditingController();
 
-  // Valores selecionados
-  String _selectedSensorType = 'traffic';
-  String _selectedRegion = 'BR';
+  // Estado da aplicação
+  String _selectedDataType = 'json';
   bool _isLoading = false;
+  bool _isTestRunning = false;
   String? _error;
   String? _successMessage;
+  String? _currentProducerId;
+  List<String> _testLogs = [];
+  Map<String, dynamic> _lastTestResult = {};
 
-  final List<Map<String, dynamic>> _sensorTypes = [
+  final List<Map<String, dynamic>> _dataTypes = [
     {
-      'value': 'traffic',
-      'label': 'Sensor de Trânsito',
-      'icon': Icons.traffic,
-      'color': Colors.orange,
-      'description':
-          'Monitora fluxo de veículos, velocidade e congestionamento',
-      'fields': ['vehicle_count', 'average_speed', 'congestion_level'],
+      'value': 'json',
+      'label': 'JSON',
+      'icon': Icons.code,
+      'description': 'Dados estruturados em formato JSON',
     },
     {
-      'value': 'air_quality',
-      'label': 'Sensor de Qualidade do Ar',
-      'icon': Icons.air,
-      'color': Colors.blue,
-      'description': 'Monitora poluentes atmosféricos e qualidade do ar',
-      'fields': ['pm25', 'pm10', 'co2', 'air_quality_index'],
+      'value': 'csv',
+      'label': 'CSV',
+      'icon': Icons.table_chart,
+      'description': 'Dados tabulares separados por vírgula',
     },
     {
-      'value': 'lighting',
-      'label': 'Sensor de Iluminação',
-      'icon': Icons.lightbulb,
-      'color': Colors.yellow,
-      'description': 'Monitora iluminação pública e consumo de energia',
-      'fields': ['brightness', 'energy_consumption', 'status'],
+      'value': 'xml',
+      'label': 'XML',
+      'icon': Icons.description,
+      'description': 'Dados estruturados em XML',
     },
     {
-      'value': 'waste',
-      'label': 'Sensor de Lixeira',
-      'icon': Icons.delete,
-      'color': Colors.green,
-      'description': 'Monitora nível de lixeiras e otimiza coleta',
-      'fields': ['fill_level', 'temperature', 'last_collection'],
+      'value': 'text',
+      'label': 'Texto',
+      'icon': Icons.text_fields,
+      'description': 'Dados em texto simples',
     },
-    {
-      'value': 'parking',
-      'label': 'Sensor de Estacionamento',
-      'icon': Icons.local_parking,
-      'color': Colors.purple,
-      'description': 'Monitora vagas disponíveis em estacionamentos',
-      'fields': ['available_spots', 'total_spots', 'occupancy_rate'],
-    },
-  ];
-
-  final List<Map<String, String>> _regions = [
-    {'value': 'BR', 'label': 'Brasil'},
-    {'value': 'MA', 'label': 'Maranhão'},
-    {'value': 'SL', 'label': 'São Luís'},
   ];
 
   @override
+  void initState() {
+    super.initState();
+    _intervalController.text = '5'; // Default 5 seconds
+    _dataKeysController.text = 'temperature,humidity,pressure';
+  }
+
+  @override
   void dispose() {
-    _sensorNameController.dispose();
-    _locationController.dispose();
-    _latitudeController.dispose();
-    _longitudeController.dispose();
+    _serviceNameController.dispose();
     _descriptionController.dispose();
+    _dataKeysController.dispose();
+    _intervalController.dispose();
     super.dispose();
   }
 
-  Future<void> _createIntegration() async {
+  Future<void> _createTestService() async {
     if (!_formKey.currentState!.validate()) return;
 
     setState(() {
       _isLoading = true;
       _error = null;
       _successMessage = null;
+      _testLogs.clear();
     });
 
     try {
@@ -106,44 +95,43 @@ class _NewInterSCityIntegrationScreenState
         throw Exception('Token do projeto não encontrado');
       }
 
-      // Criar produtor para a nova integração
+      _addLog('🔄 Criando serviço de teste...');
+
+      // Criar produtor para o serviço de teste
+      final cleanServiceName = _serviceNameController.text
+          .toLowerCase()
+          .replaceAll(
+              RegExp(r'[^a-zA-Z0-9]'), '') // Remove caracteres especiais
+          .replaceAll(' ', ''); // Remove espaços
+
+      final finalServiceName = 'testservice$cleanServiceName';
+      _addLog('📝 Nome do serviço: $finalServiceName');
+
       final producer = await _apiService.createProducer(
         provider.currentProject!.token!,
-        '${_selectedSensorType}${_sensorNameController.text.toLowerCase().replaceAll(' ', '')}',
+        finalServiceName,
         _descriptionController.text.isNotEmpty
             ? _descriptionController.text
-            : '${_getSelectedSensorType()['label']} - ${_sensorNameController.text}',
+            : 'Serviço de teste: ${_serviceNameController.text}',
       );
 
-      // Preparar dados de exemplo para o tipo de sensor
-      final sensorData = _generateSampleData();
-
-      // Enviar dados via middleware para InterSCity
-      await _apiService.sendMessage(
-        provider.currentProject!.token!,
-        producer.id,
-        sensorData.toString(),
-      );
+      _currentProducerId = producer.id;
+      _addLog('✅ Serviço criado com ID: ${producer.id}');
 
       setState(() {
-        _successMessage = '✅ Integração criada com sucesso!\n\n'
-            'Sensor: ${_sensorNameController.text}\n'
-            'Tipo: ${_getSelectedSensorType()['label']}\n'
-            'Localização: ${_locationController.text}\n\n'
-            'Dados enviados para InterSCity via middleware!';
+        _successMessage = '✅ Serviço de teste criado com sucesso!\n\n'
+            'Nome: ${_serviceNameController.text}\n'
+            'ID: ${producer.id}\n'
+            'Tipo de dados: ${_getSelectedDataType()['label']}\n\n'
+            'Agora você pode testar a conectividade e envio de dados.';
       });
 
-      // Limpar formulário após sucesso
-      _formKey.currentState!.reset();
-      _sensorNameController.clear();
-      _locationController.clear();
-      _latitudeController.clear();
-      _longitudeController.clear();
-      _descriptionController.clear();
+      _addLog('🎯 Serviço pronto para testes');
     } catch (e) {
       setState(() {
-        _error = '❌ Erro ao criar integração: $e';
+        _error = '❌ Erro ao criar serviço de teste: $e';
       });
+      _addLog('❌ Erro: $e');
     } finally {
       setState(() {
         _isLoading = false;
@@ -151,76 +139,180 @@ class _NewInterSCityIntegrationScreenState
     }
   }
 
-  Map<String, dynamic> _getSelectedSensorType() {
-    return _sensorTypes
-        .firstWhere((type) => type['value'] == _selectedSensorType);
-  }
-
-  Map<String, dynamic> _generateSampleData() {
-    final sensorType = _getSelectedSensorType();
-    final baseData = {
-      'sensor_id':
-          '${_selectedSensorType}_${DateTime.now().millisecondsSinceEpoch}',
-      'sensor_name': _sensorNameController.text,
-      'location': _locationController.text,
-      'latitude': double.tryParse(_latitudeController.text) ?? 0.0,
-      'longitude': double.tryParse(_longitudeController.text) ?? 0.0,
-      'sensor_type': _selectedSensorType,
-      'region': _selectedRegion,
-      'timestamp': DateTime.now().toIso8601String(),
-    };
-
-    // Adicionar dados específicos do tipo de sensor
-    switch (_selectedSensorType) {
-      case 'traffic':
-        baseData.addAll({
-          'vehicle_count': 45,
-          'average_speed': 35.5,
-          'congestion_level': 'baixo',
-        });
-        break;
-      case 'air_quality':
-        baseData.addAll({
-          'pm25': 12.3,
-          'pm10': 25.7,
-          'co2': 420,
-          'air_quality_index': 'boa',
-        });
-        break;
-      case 'lighting':
-        baseData.addAll({
-          'brightness': 0.8,
-          'energy_consumption': 2.3,
-          'status': 'ligado',
-        });
-        break;
-      case 'waste':
-        baseData.addAll({
-          'fill_level': 65.0,
-          'temperature': 28.5,
-          'last_collection': DateTime.now()
-              .subtract(const Duration(days: 2))
-              .toIso8601String(),
-        });
-        break;
-      case 'parking':
-        baseData.addAll({
-          'available_spots': 15,
-          'total_spots': 50,
-          'occupancy_rate': 70.0,
-        });
-        break;
+  Future<void> _testConnection() async {
+    if (_currentProducerId == null) {
+      _addLog('⚠️ Crie um serviço primeiro');
+      return;
     }
 
-    return baseData;
+    setState(() {
+      _isTestRunning = true;
+      _error = null;
+    });
+
+    try {
+      final provider = context.read<AppProvider>();
+      _addLog('🔄 Testando conectividade...');
+
+      // Gerar dados de teste
+      final testData = _generateTestData();
+      _addLog('📊 Dados de teste gerados');
+
+      // Enviar dados via middleware
+      await _apiService.sendMessage(
+        provider.currentProject!.token!,
+        _currentProducerId!,
+        jsonEncode(testData),
+      );
+
+      _addLog('✅ Teste de conectividade bem-sucedido');
+      _addLog('📤 Dados enviados para InterSCity');
+
+      setState(() {
+        _lastTestResult = {
+          'timestamp': DateTime.now().toIso8601String(),
+          'status': 'success',
+          'data': testData,
+          'producer_id': _currentProducerId,
+        };
+      });
+    } catch (e) {
+      _addLog('❌ Falha no teste de conectividade: $e');
+      setState(() {
+        _error = '❌ Erro no teste: $e';
+        _lastTestResult = {
+          'timestamp': DateTime.now().toIso8601String(),
+          'status': 'error',
+          'error': e.toString(),
+        };
+      });
+    } finally {
+      setState(() {
+        _isTestRunning = false;
+      });
+    }
+  }
+
+  Future<void> _runStressTest() async {
+    if (_currentProducerId == null) {
+      _addLog('⚠️ Crie um serviço primeiro');
+      return;
+    }
+
+    setState(() {
+      _isTestRunning = true;
+      _error = null;
+    });
+
+    try {
+      final provider = context.read<AppProvider>();
+      final interval = int.parse(_intervalController.text);
+      _addLog('🚀 Iniciando teste de stress (${interval}s de intervalo)...');
+
+      for (int i = 1; i <= 10; i++) {
+        if (!_isTestRunning) break; // Para o teste se o usuário parar
+
+        final testData = _generateTestData();
+        testData['batch_number'] = i;
+        testData['batch_total'] = 10;
+
+        await _apiService.sendMessage(
+          provider.currentProject!.token!,
+          _currentProducerId!,
+          jsonEncode(testData),
+        );
+
+        _addLog('📤 Lote $i/10 enviado');
+
+        if (i < 10) {
+          await Future.delayed(Duration(seconds: interval));
+        }
+      }
+
+      _addLog('🎉 Teste de stress concluído com sucesso!');
+
+      setState(() {
+        _lastTestResult = {
+          'timestamp': DateTime.now().toIso8601String(),
+          'status': 'stress_test_complete',
+          'batches_sent': 10,
+          'interval': interval,
+        };
+      });
+    } catch (e) {
+      _addLog('❌ Falha no teste de stress: $e');
+      setState(() {
+        _error = '❌ Erro no teste de stress: $e';
+      });
+    } finally {
+      setState(() {
+        _isTestRunning = false;
+      });
+    }
+  }
+
+  void _stopTest() {
+    setState(() {
+      _isTestRunning = false;
+    });
+    _addLog('⏹️ Teste interrompido pelo usuário');
+  }
+
+  void _addLog(String message) {
+    setState(() {
+      _testLogs.add(
+          '${DateTime.now().toLocal().toString().substring(11, 19)} - $message');
+    });
+  }
+
+  Map<String, dynamic> _generateTestData() {
+    final random = Random();
+    final keys =
+        _dataKeysController.text.split(',').map((k) => k.trim()).toList();
+
+    final data = <String, dynamic>{
+      'service_name': _serviceNameController.text,
+      'timestamp': DateTime.now().toIso8601String(),
+      'data_type': _selectedDataType,
+      'test_id': 'test_${DateTime.now().millisecondsSinceEpoch}',
+    };
+
+    // Gerar dados baseados nas chaves especificadas
+    for (String key in keys) {
+      if (key.toLowerCase().contains('temp')) {
+        data[key] = 20.0 + random.nextDouble() * 15.0; // 20-35°C
+      } else if (key.toLowerCase().contains('humidity')) {
+        data[key] = 30.0 + random.nextDouble() * 50.0; // 30-80%
+      } else if (key.toLowerCase().contains('pressure')) {
+        data[key] = 1000.0 + random.nextDouble() * 50.0; // 1000-1050 hPa
+      } else if (key.toLowerCase().contains('speed')) {
+        data[key] = random.nextDouble() * 100.0; // 0-100 km/h
+      } else if (key.toLowerCase().contains('count')) {
+        data[key] = random.nextInt(100);
+      } else {
+        data[key] = random.nextDouble() * 100.0; // Valor genérico
+      }
+    }
+
+    return data;
+  }
+
+  Map<String, dynamic> _getSelectedDataType() {
+    return _dataTypes.firstWhere((type) => type['value'] == _selectedDataType);
+  }
+
+  void _clearLogs() {
+    setState(() {
+      _testLogs.clear();
+    });
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Nova Integração InterSCity'),
-        backgroundColor: Colors.teal.shade700,
+        title: const Text('Laboratório de Testes InterSCity'),
+        backgroundColor: Colors.deepPurple.shade700,
         foregroundColor: Colors.white,
       ),
       body: SingleChildScrollView(
@@ -230,9 +322,14 @@ class _NewInterSCityIntegrationScreenState
           children: [
             _buildHeader(),
             const SizedBox(height: 24),
-            _buildIntegrationForm(),
+            _buildServiceConfigForm(),
+            const SizedBox(height: 24),
+            _buildTestControls(),
+            const SizedBox(height: 24),
+            _buildTestLogs(),
             if (_error != null) _buildErrorCard(),
             if (_successMessage != null) _buildSuccessCard(),
+            if (_lastTestResult.isNotEmpty) _buildTestResultCard(),
           ],
         ),
       ),
@@ -243,33 +340,37 @@ class _NewInterSCityIntegrationScreenState
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: Colors.teal.shade50,
+        gradient: LinearGradient(
+          colors: [Colors.deepPurple.shade50, Colors.blue.shade50],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: Colors.teal.shade200),
+        border: Border.all(color: Colors.deepPurple.shade200),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
             children: [
-              Icon(Icons.add_circle, color: Colors.teal.shade700, size: 28),
+              Icon(Icons.science, color: Colors.deepPurple.shade700, size: 32),
               const SizedBox(width: 12),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      'Criar Nova Integração',
+                      'Laboratório de Testes',
                       style:
                           Theme.of(context).textTheme.headlineSmall?.copyWith(
                                 fontWeight: FontWeight.bold,
-                                color: Colors.teal.shade800,
+                                color: Colors.deepPurple.shade800,
                               ),
                     ),
                     Text(
-                      'Configure um novo sensor para integração com InterSCity',
+                      'Crie e teste serviços personalizados para conectar com InterSCity',
                       style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                            color: Colors.teal.shade600,
+                            color: Colors.deepPurple.shade600,
                           ),
                     ),
                   ],
@@ -285,20 +386,22 @@ class _NewInterSCityIntegrationScreenState
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    'Como funciona:',
+                    'Funcionalidades do Laboratório:',
                     style: Theme.of(context).textTheme.titleMedium?.copyWith(
                           fontWeight: FontWeight.bold,
                         ),
                   ),
                   const SizedBox(height: 8),
-                  _buildStep('1. Configure o sensor',
-                      'Defina tipo, localização e parâmetros'),
-                  _buildStep('2. Middleware processa',
-                      'Roteia dados para InterSCity Adapter'),
-                  _buildStep('3. InterSCity recebe',
-                      'Dados são registrados na plataforma'),
-                  _buildStep('4. Integração ativa',
-                      'Sensor começa a enviar dados em tempo real'),
+                  _buildFeature('🔧 Criação de serviços personalizados',
+                      'Configure nome, tipo de dados e parâmetros'),
+                  _buildFeature('🔄 Teste de conectividade',
+                      'Valide a comunicação com InterSCity'),
+                  _buildFeature('💪 Teste de stress',
+                      'Simule cargas de trabalho intensas'),
+                  _buildFeature('📊 Monitoramento em tempo real',
+                      'Visualize logs e resultados dos testes'),
+                  _buildFeature('🚀 Dados customizáveis',
+                      'Defina suas próprias chaves e valores'),
                 ],
               ),
             ),
@@ -308,13 +411,12 @@ class _NewInterSCityIntegrationScreenState
     );
   }
 
-  Widget _buildStep(String title, String description) {
+  Widget _buildFeature(String title, String description) {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 4),
       child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Icon(Icons.check_circle, color: Colors.teal.shade600, size: 20),
-          const SizedBox(width: 8),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -339,231 +441,369 @@ class _NewInterSCityIntegrationScreenState
     );
   }
 
-  Widget _buildIntegrationForm() {
-    return Form(
-      key: _formKey,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            'Configuração do Sensor',
-            style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                  fontWeight: FontWeight.bold,
-                ),
-          ),
-          const SizedBox(height: 16),
-
-          // Tipo de Sensor
-          _buildSensorTypeSelector(),
-          const SizedBox(height: 16),
-
-          // Campos básicos
-          _buildTextField(
-            controller: _sensorNameController,
-            label: 'Nome do Sensor',
-            hint: 'Ex: Sensor Centro Histórico',
-            icon: Icons.sensors,
-            validator: (value) {
-              if (value == null || value.isEmpty) {
-                return 'Nome do sensor é obrigatório';
-              }
-              return null;
-            },
-          ),
-          const SizedBox(height: 16),
-
-          _buildTextField(
-            controller: _locationController,
-            label: 'Localização',
-            hint: 'Ex: Av. Principal, 123 - São Luís/MA',
-            icon: Icons.location_on,
-            validator: (value) {
-              if (value == null || value.isEmpty) {
-                return 'Localização é obrigatória';
-              }
-              return null;
-            },
-          ),
-          const SizedBox(height: 16),
-
-          // Coordenadas
-          Row(
+  Widget _buildServiceConfigForm() {
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Form(
+          key: _formKey,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Expanded(
-                child: _buildTextField(
-                  controller: _latitudeController,
-                  label: 'Latitude',
-                  hint: 'Ex: -2.5297',
-                  icon: Icons.gps_fixed,
-                  keyboardType: TextInputType.number,
+              Text(
+                '⚙️ Configuração do Serviço',
+                style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                      fontWeight: FontWeight.bold,
+                    ),
+              ),
+              const SizedBox(height: 16),
+
+              // Nome do serviço
+              _buildTextField(
+                controller: _serviceNameController,
+                label: 'Nome do Serviço',
+                hint: 'Ex: Sensor Meteorológico Central',
+                icon: Icons.label,
+                validator: (value) {
+                  if (value == null || value.isEmpty) {
+                    return 'Nome do serviço é obrigatório';
+                  }
+                  return null;
+                },
+              ),
+              Padding(
+                padding: const EdgeInsets.only(top: 4),
+                child: Text(
+                  '💡 Dica: Caracteres especiais e espaços serão removidos automaticamente',
+                  style: TextStyle(
+                    color: Colors.grey.shade600,
+                    fontSize: 12,
+                    fontStyle: FontStyle.italic,
+                  ),
                 ),
               ),
-              const SizedBox(width: 16),
-              Expanded(
-                child: _buildTextField(
-                  controller: _longitudeController,
-                  label: 'Longitude',
-                  hint: 'Ex: -44.3028',
-                  icon: Icons.gps_fixed,
-                  keyboardType: TextInputType.number,
+              const SizedBox(height: 16),
+
+              // Tipo de dados
+              _buildDataTypeSelector(),
+              const SizedBox(height: 16),
+
+              // Chaves de dados
+              _buildTextField(
+                controller: _dataKeysController,
+                label: 'Chaves de Dados',
+                hint: 'Ex: temperature,humidity,pressure',
+                icon: Icons.key,
+                validator: (value) {
+                  if (value == null || value.isEmpty) {
+                    return 'Defina pelo menos uma chave de dados';
+                  }
+                  return null;
+                },
+              ),
+              const SizedBox(height: 16),
+
+              // Intervalo de teste
+              _buildTextField(
+                controller: _intervalController,
+                label: 'Intervalo de Teste (segundos)',
+                hint: '5',
+                icon: Icons.timer,
+                keyboardType: TextInputType.number,
+                validator: (value) {
+                  if (value == null || value.isEmpty) {
+                    return 'Intervalo é obrigatório';
+                  }
+                  final interval = int.tryParse(value);
+                  if (interval == null || interval < 1) {
+                    return 'Intervalo deve ser maior que 0';
+                  }
+                  return null;
+                },
+              ),
+              const SizedBox(height: 16),
+
+              // Descrição
+              _buildTextField(
+                controller: _descriptionController,
+                label: 'Descrição (opcional)',
+                hint: 'Descreva o propósito deste serviço de teste...',
+                icon: Icons.description,
+                maxLines: 3,
+              ),
+              const SizedBox(height: 24),
+
+              // Botão de criação
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton.icon(
+                  onPressed: _isLoading ? null : _createTestService,
+                  icon: _isLoading
+                      ? const SizedBox(
+                          width: 20,
+                          height: 20,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : const Icon(Icons.add),
+                  label: Text(_isLoading
+                      ? 'Criando Serviço...'
+                      : 'Criar Serviço de Teste'),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.deepPurple.shade600,
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(vertical: 12),
+                  ),
                 ),
               ),
             ],
           ),
-          const SizedBox(height: 16),
-
-          // Região
-          _buildRegionSelector(),
-          const SizedBox(height: 16),
-
-          // Descrição
-          _buildTextField(
-            controller: _descriptionController,
-            label: 'Descrição (opcional)',
-            hint: 'Descreva o propósito deste sensor...',
-            icon: Icons.description,
-            maxLines: 3,
-          ),
-          const SizedBox(height: 24),
-
-          // Botão de criação
-          SizedBox(
-            width: double.infinity,
-            child: ElevatedButton.icon(
-              onPressed: _isLoading ? null : _createIntegration,
-              icon: _isLoading
-                  ? const SizedBox(
-                      width: 20,
-                      height: 20,
-                      child: CircularProgressIndicator(strokeWidth: 2),
-                    )
-                  : const Icon(Icons.add),
-              label: Text(_isLoading
-                  ? 'Criando Integração...'
-                  : 'Criar Integração InterSCity'),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.teal.shade600,
-                foregroundColor: Colors.white,
-                padding: const EdgeInsets.symmetric(vertical: 12),
-              ),
-            ),
-          ),
-        ],
+        ),
       ),
     );
   }
 
-  Widget _buildSensorTypeSelector() {
+  Widget _buildTestControls() {
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              '🧪 Controles de Teste',
+              style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                    fontWeight: FontWeight.bold,
+                  ),
+            ),
+            const SizedBox(height: 16),
+            if (_currentProducerId != null)
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Colors.green.shade50,
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: Colors.green.shade200),
+                ),
+                child: Row(
+                  children: [
+                    Icon(Icons.check_circle, color: Colors.green.shade600),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        'Serviço pronto: ID ${_currentProducerId}',
+                        style: TextStyle(
+                          color: Colors.green.shade700,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            const SizedBox(height: 16),
+            Row(
+              children: [
+                Expanded(
+                  child: ElevatedButton.icon(
+                    onPressed: _currentProducerId == null || _isTestRunning
+                        ? null
+                        : _testConnection,
+                    icon: _isTestRunning && _currentProducerId != null
+                        ? const SizedBox(
+                            width: 20,
+                            height: 20,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          )
+                        : const Icon(Icons.wifi_tethering),
+                    label: const Text('Testar Conexão'),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.blue.shade600,
+                      foregroundColor: Colors.white,
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: ElevatedButton.icon(
+                    onPressed: _currentProducerId == null || _isTestRunning
+                        ? null
+                        : _runStressTest,
+                    icon: const Icon(Icons.speed),
+                    label: const Text('Teste de Stress'),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.orange.shade600,
+                      foregroundColor: Colors.white,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            if (_isTestRunning) ...[
+              const SizedBox(height: 12),
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton.icon(
+                  onPressed: _stopTest,
+                  icon: const Icon(Icons.stop),
+                  label: const Text('Parar Teste'),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.red.shade600,
+                    foregroundColor: Colors.white,
+                  ),
+                ),
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildTestLogs() {
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    '📋 Logs de Teste',
+                    style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                          fontWeight: FontWeight.bold,
+                        ),
+                  ),
+                ),
+                IconButton(
+                  onPressed: _testLogs.isNotEmpty ? _clearLogs : null,
+                  icon: const Icon(Icons.clear),
+                  tooltip: 'Limpar logs',
+                ),
+              ],
+            ),
+            const SizedBox(height: 16),
+            Container(
+              height: 200,
+              width: double.infinity,
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Colors.grey.shade900,
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: Colors.grey.shade600),
+              ),
+              child: _testLogs.isEmpty
+                  ? Center(
+                      child: Text(
+                        'Nenhum log ainda...\nCrie um serviço e execute testes para ver os logs aqui.',
+                        style: TextStyle(
+                          color: Colors.grey.shade400,
+                          fontStyle: FontStyle.italic,
+                        ),
+                        textAlign: TextAlign.center,
+                      ),
+                    )
+                  : ListView.builder(
+                      itemCount: _testLogs.length,
+                      itemBuilder: (context, index) {
+                        final log = _testLogs[index];
+                        return Padding(
+                          padding: const EdgeInsets.symmetric(vertical: 2),
+                          child: Text(
+                            log,
+                            style: TextStyle(
+                              color: _getLogColor(log),
+                              fontFamily: 'monospace',
+                              fontSize: 12,
+                            ),
+                          ),
+                        );
+                      },
+                    ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Color _getLogColor(String log) {
+    if (log.contains('✅') || log.contains('🎉')) {
+      return Colors.green.shade400;
+    } else if (log.contains('❌')) {
+      return Colors.red.shade400;
+    } else if (log.contains('⚠️')) {
+      return Colors.orange.shade400;
+    } else if (log.contains('🔄')) {
+      return Colors.blue.shade400;
+    } else {
+      return Colors.grey.shade300;
+    }
+  }
+
+  Widget _buildDataTypeSelector() {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
-          'Tipo de Sensor *',
+          'Tipo de Dados *',
           style: Theme.of(context).textTheme.titleMedium?.copyWith(
                 fontWeight: FontWeight.bold,
               ),
         ),
         const SizedBox(height: 8),
-        GridView.builder(
-          shrinkWrap: true,
-          physics: const NeverScrollableScrollPhysics(),
-          gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-            crossAxisCount: 2,
-            crossAxisSpacing: 12,
-            mainAxisSpacing: 12,
-            childAspectRatio: 1.2,
-          ),
-          itemCount: _sensorTypes.length,
-          itemBuilder: (context, index) {
-            final sensorType = _sensorTypes[index];
-            final isSelected = _selectedSensorType == sensorType['value'];
-
-            return InkWell(
-              onTap: () {
-                setState(() {
-                  _selectedSensorType = sensorType['value'];
-                });
-              },
-              child: Card(
-                color: isSelected ? sensorType['color'].withOpacity(0.1) : null,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                elevation: 2,
-                child: Padding(
-                  padding: const EdgeInsets.all(12),
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Icon(
-                        sensorType['icon'],
+        Row(
+          children: _dataTypes.map((dataType) {
+            final isSelected = _selectedDataType == dataType['value'];
+            return Expanded(
+              child: Padding(
+                padding: const EdgeInsets.only(right: 8),
+                child: InkWell(
+                  onTap: () {
+                    setState(() {
+                      _selectedDataType = dataType['value'];
+                    });
+                  },
+                  child: Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: isSelected
+                          ? Colors.deepPurple.shade50
+                          : Colors.grey.shade50,
+                      border: Border.all(
                         color: isSelected
-                            ? sensorType['color']
-                            : Colors.grey.shade600,
-                        size: 32,
+                            ? Colors.deepPurple.shade300
+                            : Colors.grey.shade300,
+                        width: 2,
                       ),
-                      const SizedBox(height: 8),
-                      Text(
-                        sensorType['label'],
-                        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                              fontWeight: FontWeight.bold,
-                              color: isSelected ? sensorType['color'] : null,
-                            ),
-                        textAlign: TextAlign.center,
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        sensorType['description'],
-                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                              color: Colors.grey.shade600,
-                            ),
-                        textAlign: TextAlign.center,
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ],
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Column(
+                      children: [
+                        Icon(
+                          dataType['icon'],
+                          color: isSelected
+                              ? Colors.deepPurple.shade600
+                              : Colors.grey.shade600,
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          dataType['label'],
+                          style: TextStyle(
+                            fontWeight: FontWeight.bold,
+                            color: isSelected
+                                ? Colors.deepPurple.shade700
+                                : Colors.grey.shade700,
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
                 ),
               ),
             );
-          },
-        ),
-      ],
-    );
-  }
-
-  Widget _buildRegionSelector() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          'Região *',
-          style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                fontWeight: FontWeight.bold,
-              ),
-        ),
-        const SizedBox(height: 8),
-        DropdownButtonFormField<String>(
-          value: _selectedRegion,
-          decoration: InputDecoration(
-            prefixIcon: const Icon(Icons.public),
-            border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(8),
-            ),
-            contentPadding:
-                const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-          ),
-          items: _regions.map((region) {
-            return DropdownMenuItem(
-              value: region['value'],
-              child: Text(region['label']!),
-            );
           }).toList(),
-          onChanged: (value) {
-            setState(() {
-              _selectedRegion = value!;
-            });
-          },
         ),
       ],
     );
@@ -641,7 +881,7 @@ class _NewInterSCityIntegrationScreenState
                 Icon(Icons.check_circle, color: Colors.green.shade600),
                 const SizedBox(width: 12),
                 Text(
-                  'Integração Criada!',
+                  'Serviço Criado!',
                   style: Theme.of(context).textTheme.titleMedium?.copyWith(
                         fontWeight: FontWeight.bold,
                         color: Colors.green.shade700,
@@ -653,6 +893,50 @@ class _NewInterSCityIntegrationScreenState
             Text(
               _successMessage!,
               style: TextStyle(color: Colors.green.shade700),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildTestResultCard() {
+    return Card(
+      color: Colors.blue.shade50,
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Icon(Icons.analytics, color: Colors.blue.shade600),
+                const SizedBox(width: 12),
+                Text(
+                  'Último Resultado',
+                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                        fontWeight: FontWeight.bold,
+                        color: Colors.blue.shade700,
+                      ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Colors.grey.shade100,
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: Colors.grey.shade300),
+              ),
+              child: Text(
+                const JsonEncoder.withIndent('  ').convert(_lastTestResult),
+                style: const TextStyle(
+                  fontFamily: 'monospace',
+                  fontSize: 12,
+                ),
+              ),
             ),
           ],
         ),
