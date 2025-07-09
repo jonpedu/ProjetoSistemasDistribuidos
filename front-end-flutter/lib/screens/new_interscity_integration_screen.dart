@@ -272,9 +272,14 @@ class _NewInterSCityIntegrationScreenState
 
     final data = <String, dynamic>{
       'service_name': _serviceNameController.text,
+      'description': _descriptionController.text,
       'timestamp': DateTime.now().toIso8601String(),
       'data_type': _selectedDataType,
       'test_id': 'test_${DateTime.now().millisecondsSinceEpoch}',
+
+      'lat': -2.5310, // Exemplo de latitude para São Luís
+      'lon': -44.3040, // Exemplo de longitude para São Luís
+      'status': 'active', // Status do recurso/sensor
     };
 
     // Gerar dados baseados nas chaves especificadas

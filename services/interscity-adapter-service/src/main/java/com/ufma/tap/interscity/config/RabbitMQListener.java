@@ -18,9 +18,9 @@ public class RabbitMQListener {
     @Autowired
     private InterScityService interScityService; // <-- Reativando a injeção
 
-    private static final String TARGET_QUEUE = "queue.tasks.new";
-    private static final String TARGET_EXCHANGE = "exchange.direct.tasks";
-    private static final String ROUTING_KEY = "queue.tasks.new";
+    private static final String TARGET_QUEUE = "interscity.adapter.queue";
+    private static final String TARGET_EXCHANGE = "interscity.adapter.exchange";
+    private static final String ROUTING_KEY = "interscity.adapter.key";
 
     @Bean
     public Queue targetQueue() {

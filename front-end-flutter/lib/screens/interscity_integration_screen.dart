@@ -202,6 +202,9 @@ class _InterSCityIntegrationScreenState
         'average_speed': 28.5,
         'congestion_level': 'moderado',
         'timestamp': DateTime.now().toIso8601String(),
+        'lat': -2.5297,
+        'lon': -44.3028,
+        'status': 'active',
       };
 
       // Enviar via middleware
